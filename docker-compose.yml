@@ -1,0 +1,32 @@
+services:
+  coredns:
+    image: coredns/coredns:1.12.0
+    container_name: gateway-dns
+    restart: unless-stopped
+    network_mode: host
+    volumes:
+      - ./dns/Corefile:/etc/coredns/Corefile:ro
+      - ./dns/home.lab.zone:/etc/coredns/home.lab.zone:ro
+    command: ["-conf", "/etc/coredns/Corefile"]
+
+  caddy:
+    image: caddy:2-alpine
+    container_name: gateway-caddy
+    restart: unless-stopped
+    ports:
+      - "443:443"
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy_data:/data
+      - caddy_config:/config
+    networks:
+      - proxy
+
+volumes:
+  caddy_data:
+  caddy_config:
+
+networks:
+  proxy:
+    name: proxy
+    driver: bridge

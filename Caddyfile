@@ -1,0 +1,62 @@
+{
+	default_sni home.lab
+}
+
+(security_headers) {
+	header {
+		X-Content-Type-Options nosniff
+		X-Frame-Options DENY
+		Referrer-Policy strict-origin-when-cross-origin
+		Permissions-Policy "camera=(), microphone=(), geolocation=()"
+		Strict-Transport-Security "max-age=31536000; includeSubDomains"
+		-Server
+	}
+}
+
+# Niles AI
+niles.home.lab {
+	tls internal
+	import security_headers
+	log {
+		output stdout
+		format json
+		level INFO
+	}
+	reverse_proxy niles_core:8000
+}
+
+# PulseBase (Garmin Dashboard)
+garmin.home.lab {
+	tls internal
+	import security_headers
+	log {
+		output stdout
+		format json
+		level INFO
+	}
+	reverse_proxy garmin-api:8000
+}
+
+# Vikunja (Todos)
+vikunja.home.lab {
+	tls internal
+	import security_headers
+	log {
+		output stdout
+		format json
+		level INFO
+	}
+	reverse_proxy vikunja:3456
+}
+
+# Evolution API (WhatsApp)
+whatsapp.home.lab {
+	tls internal
+	import security_headers
+	log {
+		output stdout
+		format json
+		level INFO
+	}
+	reverse_proxy evolution_api:8080
+}
