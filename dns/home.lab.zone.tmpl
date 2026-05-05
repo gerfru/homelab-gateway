@@ -1,0 +1,5 @@
+$ORIGIN ${DOMAIN}.
+@   3600 IN SOA  ns.${DOMAIN}. admin.${DOMAIN}. (1 3600 1200 604800 300)
+@   3600 IN NS   ns.${DOMAIN}.
+ns  3600 IN A    ${TAILSCALE_IP}
+*   3600 IN A    ${TAILSCALE_IP}
