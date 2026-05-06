@@ -1,4 +1,7 @@
 services:
+  # On Linux: CoreDNS runs in Docker with host networking (binds to Tailscale IP)
+  # On macOS: CoreDNS runs natively via brew (Docker can't bind Tailscale utun0)
+  # Use `make up` which auto-detects the OS
   coredns:
     image: coredns/coredns:1.12.0
     container_name: gateway-dns
@@ -8,6 +11,8 @@ services:
       - ./dns/Corefile:/etc/coredns/Corefile:ro
       - ./dns/home.lab.zone:/etc/coredns/home.lab.zone:ro
     command: ["-conf", "/etc/coredns/Corefile"]
+    profiles:
+      - linux
 
   caddy:
     image: caddy:2-alpine
@@ -30,3 +35,4 @@ networks:
   proxy:
     name: proxy
     driver: bridge
+    # Caddy always runs in Docker — apps connect via this network
