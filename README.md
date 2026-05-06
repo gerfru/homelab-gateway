@@ -28,6 +28,16 @@ Browser: https://niles.home.lab
 - `envsubst` (part of `gettext` — pre-installed on macOS)
 - `dig` for DNS testing (optional)
 
+### Platform notes
+
+| | macOS | Linux |
+|---|---|---|
+| **CoreDNS** | Native via `brew install coredns` | Docker container (`network_mode: host`) |
+| **Caddy** | Docker | Docker |
+| **Why?** | Docker Desktop can't bind Tailscale's utun0 interface | Host networking works natively |
+
+`make up` auto-detects the OS and handles this transparently.
+
 ## Setup
 
 ### 1. Configure environment
@@ -118,22 +128,23 @@ The DNS wildcard already resolves `myapp.home.lab` to your server — no DNS cha
 
 | Command | Description |
 |---------|-------------|
-| `make up` | Start gateway (CoreDNS + Caddy) |
+| `make up` | Start gateway (CoreDNS + Caddy, OS-aware) |
 | `make down` | Stop gateway |
 | `make generate` | Generate DNS config from templates |
 | `make test-dns` | Test DNS resolution |
 | `make logs` | Live logs (all services) |
 | `make logs-caddy` | Live Caddy logs |
 | `make logs-dns` | Live CoreDNS logs |
-| `make status` | Container status |
+| `make dns-status` | Check if CoreDNS is running |
+| `make status` | Container + DNS status |
 | `make clean` | Stop + remove volumes + generated files |
 
 ## Architecture
 
 ```
 homelab-gateway (this repo)
-├── CoreDNS ─── *.home.lab -> Tailscale IP (port 53, host network)
-└── Caddy ───── SNI routing on port 443 (proxy network)
+├── CoreDNS ─── *.home.lab -> Tailscale IP (port 53, native on macOS / Docker on Linux)
+└── Caddy ───── SNI routing on port 443 (Docker, proxy network)
                  ├── niles.home.lab    -> niles_core:8000
                  ├── garmin.home.lab   -> garmin-api:8000
                  ├── vikunja.home.lab  -> vikunja:3456
@@ -149,7 +160,7 @@ Other repos (connect via external 'proxy' network):
 - All traffic encrypted via Tailscale WireGuard tunnel
 - HTTPS with self-signed certificates (accept browser warning once per subdomain)
 - Security headers on all responses (HSTS, CSP, X-Frame-Options, etc.)
-- DNS only accessible from within Tailnet (CoreDNS binds to Tailscale IP)
+- DNS only accessible from within Tailnet (CoreDNS binds to Tailscale IP on macOS, host network on Linux)
 - No ports exposed on public interfaces
 
 ## Upgrading to real TLS certificates
