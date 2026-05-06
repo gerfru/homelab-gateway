@@ -1,0 +1,6 @@
+${DOMAIN}:53 {
+    bind ${TAILSCALE_IP}
+    file ${ZONE_FILE}
+    log
+    errors
+}
