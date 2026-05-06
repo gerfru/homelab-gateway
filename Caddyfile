@@ -13,8 +13,8 @@
 	}
 }
 
-# Niles AI
-niles.home.lab {
+# Niles AI (home.lab + MagicDNS alias for Google OAuth)
+niles.home.lab, ${NILES_TS_HOSTNAME} {
 	tls internal
 	import security_headers
 	log {
