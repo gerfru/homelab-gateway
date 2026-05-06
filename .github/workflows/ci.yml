@@ -27,7 +27,7 @@ jobs:
           scandir: scripts
 
       - name: Hadolint (Dockerfile best practices)
-        uses: hadolint/hadolint-action@54c9adbab1582c2ef04b2016b760714a4bfde3cf  # v3
+        uses: hadolint/hadolint-action@2332a7b74a6de0dda2e2221d575162eba76ba5e5  # v3
         with:
           dockerfile: "Dockerfile"
           failure-threshold: warning
