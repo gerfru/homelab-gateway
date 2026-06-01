@@ -25,7 +25,7 @@ niles.home.lab, niles.tail1d4a0f.ts.net {
 	reverse_proxy niles_core:8000
 }
 
-# PulseBase (Garmin Dashboard)
+# PulseBase
 garmin.home.lab {
 	tls internal
 	import security_headers
@@ -34,7 +34,7 @@ garmin.home.lab {
 		format json
 		level INFO
 	}
-	reverse_proxy garmin-api:8000
+	reverse_proxy pulsebase-api:8000
 }
 
 # Vikunja (Todos)
