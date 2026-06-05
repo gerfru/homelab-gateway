@@ -28,6 +28,11 @@ services:
       - proxy
     labels:
       - "monitoring=true"
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
 
   # --- Monitoring (centralized for all projects) ---
 
@@ -107,6 +112,57 @@ services:
         max-size: "5m"
         max-file: "2"
 
+  # --- Metrics (system monitoring) ---
+
+  node-exporter:
+    image: prom/node-exporter:v1.9.1
+    container_name: gateway-node-exporter
+    restart: unless-stopped
+    pid: host
+    volumes:
+      - /:/host:ro
+    command:
+      - "--path.rootfs=/host"
+      - "--collector.filesystem.mount-points-exclude=^/(dev|proc|sys|var/lib/docker/.+)($$|/)"
+    networks:
+      - monitoring
+    deploy:
+      resources:
+        limits:
+          memory: 64m
+          cpus: '0.10'
+    logging:
+      driver: json-file
+      options:
+        max-size: "5m"
+        max-file: "2"
+
+  prometheus:
+    image: prom/prometheus:v3.4.1
+    container_name: gateway-prometheus
+    restart: unless-stopped
+    volumes:
+      - ./monitoring/prometheus.yml:/etc/prometheus/prometheus.yml:ro
+      - prometheus-data:/prometheus
+    command:
+      - "--config.file=/etc/prometheus/prometheus.yml"
+      - "--storage.tsdb.retention.time=30d"
+      - "--storage.tsdb.retention.size=500MB"
+    depends_on:
+      - node-exporter
+    networks:
+      - monitoring
+    deploy:
+      resources:
+        limits:
+          memory: 256m
+          cpus: '0.25'
+    logging:
+      driver: json-file
+      options:
+        max-size: "5m"
+        max-file: "2"
+
   uptime-kuma:
     image: louislam/uptime-kuma:1@sha256:3d632903e6af34139a37f18055c4f1bfd9b7205ae1138f1e5e8940ddc1d176f9
     container_name: gateway-uptime
@@ -139,6 +195,7 @@ volumes:
   caddy_config:
   loki-data:
   grafana-data:
+  prometheus-data:
   uptime-kuma-data:
 
 networks:
