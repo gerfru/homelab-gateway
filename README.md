@@ -48,11 +48,14 @@ cp .env.example .env
 
 Edit `.env`:
 ```bash
-TAILSCALE_IP=100.x.x.x       # tailscale ip -4
+TAILSCALE_IP=100.x.x.x                        # tailscale ip -4
 DOMAIN=home.lab
+NILES_TS_HOSTNAME=machine.tailnet.ts.net       # from Tailscale admin
+GF_ADMIN_USER=admin
+GF_ADMIN_PASSWORD=<strong-password>
 ```
 
-### 2. Generate DNS config
+### 2. Generate config from templates
 
 ```bash
 make generate
@@ -103,7 +106,7 @@ curl -k https://garmin.home.lab/health
        external: true
    ```
 
-2. Add a vhost block to `Caddyfile`:
+2. Add a vhost block to `Caddyfile.tmpl`:
    ```caddyfile
    myapp.home.lab {
        tls internal
@@ -117,8 +120,9 @@ curl -k https://garmin.home.lab/health
    }
    ```
 
-3. Restart Caddy:
+3. Regenerate and restart:
    ```bash
+   make generate
    docker compose restart caddy
    ```
 
@@ -130,7 +134,7 @@ The DNS wildcard already resolves `myapp.home.lab` to your server — no DNS cha
 |---------|-------------|
 | `make up` | Start gateway (CoreDNS + Caddy, OS-aware) |
 | `make down` | Stop gateway |
-| `make generate` | Generate DNS config from templates |
+| `make generate` | Generate DNS + Caddy config from templates |
 | `make test-dns` | Test DNS resolution |
 | `make logs` | Live logs (all services) |
 | `make logs-caddy` | Live Caddy logs |
@@ -188,7 +192,11 @@ Logs are tagged with a `project` label (from `com.docker.compose.project`) so yo
 - Security headers on all responses (HSTS, CSP, X-Frame-Options, etc.)
 - DNS only accessible from within Tailnet (CoreDNS binds to Tailscale IP on macOS, host network on Linux)
 - Caddy binds exclusively to Tailscale IP (not `0.0.0.0`)
+- Grafana requires login (anonymous access disabled)
+- Loki tenant authentication enabled (`X-Scope-OrgID: homelab`)
 - Loki only accessible from localhost (`127.0.0.1:3100`)
+- All containers run with `no-new-privileges` and minimal capabilities
+- All Docker images pinned by SHA256 digest
 - Promtail mounts Docker socket read-only for container log discovery
 
 ## Upgrading to real TLS certificates
