@@ -50,7 +50,6 @@ Edit `.env`:
 ```bash
 TAILSCALE_IP=100.x.x.x                        # tailscale ip -4
 DOMAIN=home.lab
-NILES_TS_HOSTNAME=machine.tailnet.ts.net       # from Tailscale admin
 GF_ADMIN_USER=admin
 GF_ADMIN_PASSWORD=<strong-password>
 ```
