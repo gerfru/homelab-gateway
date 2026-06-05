@@ -18,9 +18,11 @@ else
 	@envsubst '$$DOMAIN $$TAILSCALE_IP' < dns/Corefile.tmpl > dns/Corefile
 endif
 	@envsubst '$$DOMAIN $$TAILSCALE_IP' < dns/home.lab.zone.tmpl > dns/home.lab.zone
+	@envsubst '$$NILES_TS_HOSTNAME' < Caddyfile.tmpl > Caddyfile
 	@echo "Done. Generated:"
 	@echo "  dns/Corefile"
 	@echo "  dns/home.lab.zone"
+	@echo "  Caddyfile"
 	@echo ""
 	@echo "Run 'make up' to start the gateway."
 
@@ -139,4 +141,4 @@ test-dns:
 
 clean: dns-down
 	docker compose down -v
-	rm -f dns/Corefile dns/home.lab.zone
+	rm -f dns/Corefile dns/home.lab.zone Caddyfile

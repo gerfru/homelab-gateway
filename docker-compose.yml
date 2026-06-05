@@ -3,10 +3,12 @@ services:
   # On macOS: CoreDNS runs natively via brew (Docker can't bind Tailscale utun0)
   # Use `make up` which auto-detects the OS
   coredns:
-    image: coredns/coredns:1.14.3
+    image: coredns/coredns:1.14.3@sha256:b21d26b915e10acb5bc78715c1e8b6047ab2675389b2bcc18b3a6499d90e74c0
     container_name: gateway-dns
     restart: unless-stopped
     network_mode: host
+    security_opt:
+      - no-new-privileges:true
     volumes:
       - ./dns/Corefile:/etc/coredns/Corefile:ro
       - ./dns/home.lab.zone:/etc/coredns/home.lab.zone:ro
@@ -15,9 +17,15 @@ services:
       - linux
 
   caddy:
-    image: caddy:2-alpine
+    image: caddy:2-alpine@sha256:77c07d5ebfa5be9fd6c820d2094ae662c9e7eeb9bf98346b7f639900263ee2a2
     container_name: gateway-caddy
     restart: unless-stopped
+    security_opt:
+      - no-new-privileges:true
+    cap_drop:
+      - ALL
+    cap_add:
+      - NET_BIND_SERVICE
     ports:
       - "${TAILSCALE_IP}:443:443"
     volumes:
@@ -40,6 +48,11 @@ services:
     image: grafana/loki:3.7.2@sha256:191d4fdfb7264f16989f0a57f320872620a5a7c2ceeec6229212c4190ec49b86
     container_name: gateway-loki
     restart: unless-stopped
+    user: "10001:10001"
+    security_opt:
+      - no-new-privileges:true
+    cap_drop:
+      - ALL
     ports:
       - "127.0.0.1:3100:3100"
     volumes:
@@ -63,6 +76,10 @@ services:
     image: grafana/promtail:3.0.0@sha256:d3de3da9431cfbe74a6a94555050df5257f357e827be8e63f8998d509c37af8b
     container_name: gateway-promtail
     restart: unless-stopped
+    security_opt:
+      - no-new-privileges:true
+    cap_drop:
+      - ALL
     volumes:
       - ./monitoring/promtail-config.yml:/etc/promtail/config.yml:ro
       - /var/lib/docker/containers:/var/lib/docker/containers:ro
@@ -84,12 +101,19 @@ services:
         max-file: "2"
 
   grafana:
-    image: grafana/grafana:11.6.15
+    image: grafana/grafana:11.6.15@sha256:f739273dfed04760428fcfbfccd1752b3b7fc87ef0a3d5637e2e87cce151e1a2
     container_name: gateway-grafana
     restart: unless-stopped
+    user: "472:0"
+    security_opt:
+      - no-new-privileges:true
+    cap_drop:
+      - ALL
     environment:
-      - GF_AUTH_ANONYMOUS_ENABLED=true
-      - GF_AUTH_ANONYMOUS_ORG_ROLE=Viewer
+      - GF_AUTH_ANONYMOUS_ENABLED=false
+      - GF_SECURITY_ADMIN_USER=${GF_ADMIN_USER}
+      - GF_SECURITY_ADMIN_PASSWORD=${GF_ADMIN_PASSWORD}
+      - GF_USERS_ALLOW_SIGN_UP=false
       - GF_SERVER_ROOT_URL=https://logs.home.lab
     volumes:
       - grafana-data:/var/lib/grafana
@@ -115,10 +139,14 @@ services:
   # --- Metrics (system monitoring) ---
 
   node-exporter:
-    image: prom/node-exporter:v1.9.1
+    image: prom/node-exporter:v1.9.1@sha256:d00a542e409ee618a4edc67da14dd48c5da66726bbd5537ab2af9c1dfc442c8a
     container_name: gateway-node-exporter
     restart: unless-stopped
     pid: host
+    security_opt:
+      - no-new-privileges:true
+    cap_drop:
+      - ALL
     volumes:
       - /:/host:ro
     command:
@@ -138,9 +166,14 @@ services:
         max-file: "2"
 
   prometheus:
-    image: prom/prometheus:v3.4.1
+    image: prom/prometheus:v3.4.1@sha256:9abc6cf6aea7710d163dbb28d8eeb7dc5baef01e38fa4cd146a406dd9f07f70d
     container_name: gateway-prometheus
     restart: unless-stopped
+    user: "65534:65534"
+    security_opt:
+      - no-new-privileges:true
+    cap_drop:
+      - ALL
     volumes:
       - ./monitoring/prometheus.yml:/etc/prometheus/prometheus.yml:ro
       - prometheus-data:/prometheus
@@ -167,6 +200,8 @@ services:
     image: louislam/uptime-kuma:1@sha256:3d632903e6af34139a37f18055c4f1bfd9b7205ae1138f1e5e8940ddc1d176f9
     container_name: gateway-uptime
     restart: unless-stopped
+    security_opt:
+      - no-new-privileges:true
     volumes:
       - uptime-kuma-data:/app/data
     networks:
