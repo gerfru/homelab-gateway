@@ -48,7 +48,7 @@ cp .env.example .env
 
 Edit `.env`:
 ```bash
-TAILSCALE_IP=100.x.x.x   # tailscale ip -4
+TAILSCALE_IP=100.x.x.x       # tailscale ip -4
 DOMAIN=home.lab
 ```
 
