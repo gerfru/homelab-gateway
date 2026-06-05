@@ -60,3 +60,27 @@ whatsapp.home.lab {
 	}
 	reverse_proxy evolution_api:8080
 }
+
+# Uptime Kuma (Status Page)
+status.home.lab {
+	tls internal
+	import security_headers
+	log {
+		output stdout
+		format json
+		level INFO
+	}
+	reverse_proxy gateway-uptime:3001
+}
+
+# Grafana (Logs)
+logs.home.lab {
+	tls internal
+	import security_headers
+	log {
+		output stdout
+		format json
+		level INFO
+	}
+	reverse_proxy gateway-grafana:3000
+}
