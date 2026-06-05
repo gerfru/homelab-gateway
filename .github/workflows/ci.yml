@@ -39,7 +39,11 @@ jobs:
       - uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10  # v6.0.3
 
       - name: Validate docker-compose.yml
-        run: docker compose config --quiet
+        run: |
+          TAILSCALE_IP=100.0.0.1 \
+          GF_ADMIN_USER=admin \
+          GF_ADMIN_PASSWORD=placeholder \
+          docker compose config --quiet
 
   secret-scan:
     runs-on: ubuntu-latest
@@ -57,6 +61,11 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10  # v6.0.3
+
+      - name: Generate Caddyfile from template
+        run: |
+          NILES_TS_HOSTNAME=test.example.ts.net \
+          envsubst '$NILES_TS_HOSTNAME' < Caddyfile.tmpl > Caddyfile
 
       - name: Validate Caddyfile syntax
         run: |
