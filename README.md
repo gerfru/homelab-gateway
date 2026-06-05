@@ -152,8 +152,10 @@ homelab-gateway (this repo)
 │                 ├── status.home.lab   -> gateway-uptime:3001
 │                 └── logs.home.lab     -> gateway-grafana:3000
 ├── Loki ─────── Centralized log aggregation (port 3100, localhost only)
-├── Grafana ──── Log UI and dashboards (via Caddy)
+├── Grafana ──── Dashboards for logs and system metrics (via Caddy)
 ├── Promtail ─── Log collection via Docker labels (monitoring=true)
+├── Prometheus ─ Time-series metrics storage (30d retention, 500MB cap)
+├── node_exporter System metrics collector (CPU, RAM, disk, network)
 └── Uptime Kuma  Service health monitoring
 
 Other repos (connect via external 'proxy' network):
@@ -163,10 +165,10 @@ Other repos (connect via external 'proxy' network):
 
 ### Networks
 
-| Network      | Purpose                                | Used by                                    |
-|--------------|----------------------------------------|--------------------------------------------|
-| `proxy`      | Reverse proxy access to app containers | Caddy, Grafana, Uptime Kuma, app services  |
-| `monitoring` | Internal Loki/Promtail communication   | Loki, Promtail, Grafana, Uptime Kuma       |
+| Network      | Purpose                                | Used by                                              |
+|--------------|----------------------------------------|------------------------------------------------------|
+| `proxy`      | Reverse proxy access to app containers | Caddy, Grafana, Uptime Kuma, app services            |
+| `monitoring` | Internal monitoring communication      | Loki, Promtail, Prometheus, Grafana, Uptime Kuma     |
 
 ### Monitoring
 
