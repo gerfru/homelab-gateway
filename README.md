@@ -1,8 +1,8 @@
 # Homelab Gateway
 
-**Subdomain routing for self-hosted apps over Tailscale — no domain purchase, no client config.**
+**Centralized infrastructure for self-hosted apps over Tailscale — DNS, reverse proxy, monitoring, logging.**
 
-CoreDNS provides wildcard DNS (`*.home.lab` -> your Tailscale IP), Caddy handles HTTPS termination and reverse proxying. All services reachable on port 443 via subdomain.
+CoreDNS provides wildcard DNS (`*.home.lab` -> your Tailscale IP), Caddy handles HTTPS termination and reverse proxying. Loki + Promtail collect logs from all projects, Uptime Kuma monitors service health. All services reachable on port 443 via subdomain.
 
 ## How it works
 
@@ -143,17 +143,41 @@ The DNS wildcard already resolves `myapp.home.lab` to your server — no DNS cha
 
 ```
 homelab-gateway (this repo)
-├── CoreDNS ─── *.home.lab -> Tailscale IP (port 53, native on macOS / Docker on Linux)
-└── Caddy ───── SNI routing on port 443 (Docker, proxy network)
-                 ├── niles.home.lab    -> niles_core:8000
-                 ├── garmin.home.lab   -> garmin-api:8000
-                 ├── vikunja.home.lab  -> vikunja:3456
-                 └── whatsapp.home.lab -> evolution_api:8080
+├── CoreDNS ──── *.home.lab -> Tailscale IP (port 53)
+├── Caddy ────── SNI routing on port 443
+│                 ├── niles.home.lab    -> niles_core:8000
+│                 ├── garmin.home.lab   -> pulsebase-api:8000
+│                 ├── vikunja.home.lab  -> vikunja:3456
+│                 ├── whatsapp.home.lab -> evolution_api:8080
+│                 ├── status.home.lab   -> gateway-uptime:3001
+│                 └── logs.home.lab     -> gateway-grafana:3000
+├── Loki ─────── Centralized log aggregation (port 3100, localhost only)
+├── Grafana ──── Log UI and dashboards (via Caddy)
+├── Promtail ─── Log collection via Docker labels (monitoring=true)
+└── Uptime Kuma  Service health monitoring
 
 Other repos (connect via external 'proxy' network):
 ├── Niles         (niles_core, evolution_api, vikunja)
-└── PulseBase     (garmin-api)
+└── PulseBase     (pulsebase-api, sync-service, ml-service, TimescaleDB)
 ```
+
+### Networks
+
+| Network      | Purpose                                | Used by                                    |
+|--------------|----------------------------------------|--------------------------------------------|
+| `proxy`      | Reverse proxy access to app containers | Caddy, Grafana, Uptime Kuma, app services  |
+| `monitoring` | Internal Loki/Promtail communication   | Loki, Promtail, Grafana, Uptime Kuma       |
+
+### Monitoring
+
+Promtail auto-discovers containers with the `monitoring=true` Docker label. To include a container in centralized logging, add:
+
+```yaml
+labels:
+  - "monitoring=true"
+```
+
+Logs are tagged with a `project` label (from `com.docker.compose.project`) so you can filter by project in Loki queries. Browse logs at `https://logs.home.lab` (Grafana with Loki pre-configured as datasource).
 
 ## Security
 
@@ -161,7 +185,9 @@ Other repos (connect via external 'proxy' network):
 - HTTPS with self-signed certificates (accept browser warning once per subdomain)
 - Security headers on all responses (HSTS, CSP, X-Frame-Options, etc.)
 - DNS only accessible from within Tailnet (CoreDNS binds to Tailscale IP on macOS, host network on Linux)
-- No ports exposed on public interfaces
+- Caddy binds exclusively to Tailscale IP (not `0.0.0.0`)
+- Loki only accessible from localhost (`127.0.0.1:3100`)
+- Promtail mounts Docker socket read-only for container log discovery
 
 ## Upgrading to real TLS certificates
 
