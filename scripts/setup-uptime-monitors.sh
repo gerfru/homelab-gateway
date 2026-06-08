@@ -21,6 +21,7 @@ fi
 DOMAIN="${DOMAIN:?Set DOMAIN in .env or environment}"
 
 # Extract subdomains from Caddyfile.tmpl (lines matching: name.${DOMAIN} {)
+# shellcheck disable=SC2016
 SUBDOMAINS=$(grep -oE '^[a-z]+\.\$\{DOMAIN\}' "$CADDYFILE" \
   | sed 's/\.\${DOMAIN}//' | sort -u)
 
