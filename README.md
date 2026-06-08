@@ -198,6 +198,32 @@ Logs are tagged with a `project` label (from `com.docker.compose.project`) so yo
 - All Docker images pinned by SHA256 digest
 - Promtail mounts Docker socket read-only for container log discovery
 
+## Rollback
+
+### Letzte Änderung rückgängig machen
+
+```bash
+git log --oneline -5           # Letzten funktionierenden Commit finden
+git revert <commit-hash>       # Problematischen Commit reverten
+make generate && make up       # Configs neu generieren und Stack neustarten
+```
+
+### Einzelnen Service zurückrollen
+
+```bash
+# In docker-compose.yml das Image-Tag/Digest auf die vorherige Version ändern
+docker compose up -d <service-name>
+```
+
+### Kompletter Stack-Neustart
+
+```bash
+make down
+git checkout <known-good-commit>
+make generate && make up
+make test-dns && docker compose ps
+```
+
 ## Upgrading to real TLS certificates
 
 Replace `tls internal` with the [caddy-tailscale plugin](https://github.com/tailscale/caddy-tailscale) for automatic Let's Encrypt certificates via Tailscale. Requires a custom Caddy build with the plugin and a Tailscale auth key.
