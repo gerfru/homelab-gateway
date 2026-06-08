@@ -13,7 +13,7 @@
 
 ## Test-Checkliste
 
-- [ ] CI Pipeline läuft grün (lint, docker-compose-validate, secret-scan, caddyfile-validate)
+- [ ] CI Pipeline läuft grün (lint, docker-compose-validate, secret-scan, caddyfile-validate, trivy, semgrep, checkov)
 - [ ] `docker compose config --quiet` lokal erfolgreich
 - [ ] Bei Service-Änderungen: `make up` + `make test-dns` lokal getestet
 - [ ] Bei Caddyfile-Änderungen: `make generate` erzeugt korrekte Config

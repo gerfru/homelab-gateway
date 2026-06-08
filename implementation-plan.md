@@ -11,10 +11,10 @@
 | Wave | PR | Thema | Findings | Effort | Dateien |
 |:---:|---|---|:---:|:---:|:---:|
 | 1 | ~~PR-01~~ [#25](https://github.com/gerfru/homelab-gateway/pull/25) ✅ | ~~GitHub Repo Security Gates~~ | 7 | S | GitHub Settings, ci.yml, dependabot.yml, renovate.json |
-| 2 | PR-02 | Container Hardening (docker-compose) | 12 | S | docker-compose.yml |
-| 3 | PR-03 | Caddy Template + Config Hygiene | 8 | S | Caddyfile.tmpl, Makefile, docker-compose.yml |
-| 4 | PR-04 | CI Pipeline Erweiterung (Trivy, Semgrep, PII) | 6 | M | ci.yml, .pre-commit-config.yaml |
-| 5 | PR-05 | Observability: Alerting + Scrape Coverage | 8 | M | prometheus.yml, alert-rules.yml, promtail-config.yml, docker-compose.yml, Grafana Dashboards |
+| 2 | ~~PR-02~~ [#27](https://github.com/gerfru/homelab-gateway/pull/27) ✅ | ~~Container Hardening (docker-compose)~~ | 12 | S | docker-compose.yml |
+| 3 | ~~PR-03~~ [#28](https://github.com/gerfru/homelab-gateway/pull/28) ✅ | ~~Caddy Template + Config Hygiene~~ | 8 | S | Caddyfile.tmpl, Makefile, docker-compose.yml |
+| 4 | ~~PR-04~~ [#29](https://github.com/gerfru/homelab-gateway/pull/29) ✅ | ~~CI Pipeline Erweiterung (Trivy, Semgrep, Checkov)~~ | 6 | M | ci.yml, .pre-commit-config.yaml |
+| 5 | ~~PR-05~~ [#32](https://github.com/gerfru/homelab-gateway/pull/32) ✅ | ~~Observability: Alerting + Scrape Coverage~~ | 8 | M | prometheus.yml, promtail-config.yml, docker-compose.yml, Grafana Alerting + Dashboards |
 | 6 | PR-06 | Code Quality + Cleanup | 10 | S | scripts/check-pii.sh, Makefile, homelab-overview.json, requirements.txt, loki.yml |
 | 7 | PR-07 | Testing Foundation | 7 | M | tests/, ci.yml, .pre-commit-config.yaml, Makefile |
 | 8 | PR-08 | Long-term: Deployment, Tracing, Error Tracking | 4 | L | docker-compose.yml, ci.yml, Makefile |
@@ -48,189 +48,123 @@
 
 ---
 
-## Wave 2 — PR-02: Container Hardening
+## ~~Wave 2 — PR-02: Container Hardening~~ ✅ Erledigt
 
-**Priorität:** 🔴 CRITICAL + 🟠 HIGH — Sicherheitslücken schließen
-**Begründung:** Docker Socket, fehlende Health Checks und ungehärtete Container sind die größten Angriffsflächen.
+**PR:** [#27](https://github.com/gerfru/homelab-gateway/pull/27) — gemergt 2026-06-08
 
-### Findings
+### Umgesetzt
 
-| # | Finding | Severity | Aktion |
-|---|---------|----------|--------|
-| C-01 | Docker socket in Promtail | Critical (ISEC) | Docker-Socket-Proxy (Tecnativa) einführen ODER auf file-based Scraping umstellen |
-| C-02 | node-exporter mountet gesamtes Host-FS | Critical (ISEC) | `/` durch `/proc`, `/sys`, `/rootfs` ersetzen + command flags |
-| 8 | Health checks auf 7/8 Services fehlen | High | healthcheck-Blöcke für alle Services |
-| 19 | Promtail läuft als root | Medium | `user: "10001:10001"` |
-| 20 | Uptime Kuma: cap_drop + root | Medium | `cap_drop: ALL`, `user: "1000:1000"` |
-| 21 | CoreDNS: cap_drop fehlt | Medium | `cap_drop: ALL`, `cap_add: NET_BIND_SERVICE` |
-| 24 | Caddy: Resource Limits fehlen | Medium | `deploy.resources.limits: 256m / 0.50` |
-| 25 | CoreDNS: Resource Limits fehlen | Medium | `deploy.resources.limits: 64m / 0.10` |
-| 28 | CoreDNS: Log Rotation fehlt | Medium | `logging: json-file, 5m, 2 files` |
-| 29 | depends_on ohne service_healthy | Medium | `condition: service_healthy` (nach Health Checks) |
-| 49 | read_only: true nicht gesetzt | Low | `read_only: true` + `tmpfs` für `/tmp` wo möglich |
-| 50 | Uptime Kuma: cap_drop fehlt | Low | (zusammen mit #20) |
-
-### Betroffene Dateien
-```
-docker-compose.yml               → Hauptarbeit (alle Services)
-monitoring/promtail-config.yml    → falls Umstellung auf file-based Scraping
-```
-
-### Reihenfolge innerhalb des PRs
-1. Docker-Socket-Proxy oder file-based Scraping für Promtail
-2. node-exporter Volume-Mounts einschränken
-3. Health Checks für alle Services hinzufügen
-4. cap_drop + user für CoreDNS, Uptime Kuma, Promtail
-5. Resource Limits für Caddy + CoreDNS
-6. Log Rotation für CoreDNS
-7. depends_on mit condition: service_healthy
-8. read_only: true wo möglich
+| # | Finding | Severity | Ergebnis |
+|---|---------|----------|----------|
+| C-01 | Docker socket in Promtail | Critical (ISEC) | ✅ Docker Socket Proxy (Tecnativa) eingeführt, direkter Socket-Zugriff entfernt |
+| C-02 | node-exporter mountet gesamtes Host-FS | Critical (ISEC) | ✅ Auf `/proc`, `/sys`, `/rootfs` eingeschränkt + command flags |
+| 8 | Health checks auf 7/8 Services fehlen | High | ✅ Health Checks auf Caddy, Grafana, Prometheus, node-exporter, socket-proxy (Loki/Promtail: distroless) |
+| 19 | Promtail läuft als root | Medium | ✅ Entfernt (distroless Image handhabt User intern) |
+| 20 | Uptime Kuma: cap_drop + root | Medium | ✅ `cap_drop: ALL`, `cap_add: SETGID, SETUID` |
+| 21 | CoreDNS: cap_drop fehlt | Medium | ✅ `cap_drop: ALL`, `cap_add: NET_BIND_SERVICE` |
+| 24 | Caddy: Resource Limits fehlen | Medium | ✅ 256m / 0.50 CPU |
+| 25 | CoreDNS: Resource Limits fehlen | Medium | ✅ 64m / 0.10 CPU |
+| 28 | CoreDNS: Log Rotation fehlt | Medium | ✅ json-file, 5m, 2 Dateien |
+| 29 | depends_on ohne service_healthy | Medium | ✅ `condition: service_healthy` wo möglich |
+| 49 | read_only: true nicht gesetzt | Low | ✅ `read_only: true` + `tmpfs` auf allen passenden Services |
+| 50 | Uptime Kuma: cap_drop fehlt | Low | ✅ (zusammen mit #20) |
 
 ### Validierung
-- [ ] `docker compose up -d` startet ohne Fehler
-- [ ] `docker compose ps` zeigt alle Services als "healthy"
-- [ ] `docker exec gateway-promtail cat /var/run/docker.sock` schlägt fehl (kein direkter Socket-Zugriff)
-- [ ] `docker inspect gateway-caddy | jq '.[0].HostConfig.Memory'` zeigt Limit
+
+- [x] `docker compose up -d` startet ohne Fehler
+- [x] `docker compose ps` zeigt alle Services als "healthy"
+- [x] Promtail nutzt Socket Proxy statt direkten Docker Socket
+- [x] Caddy hat Memory-Limit (256m)
 
 ---
 
-## Wave 3 — PR-03: Caddy Template + Config Hygiene
+## ~~Wave 3 — PR-03: Caddy Template + Config Hygiene~~ ✅ Erledigt
 
-**Priorität:** 🟡 MEDIUM — 12-Factor Compliance + DRY
-**Begründung:** Hardcoded Domain verhindert Portabilität und widerspricht 12-Factor.
+**PR:** [#28](https://github.com/gerfru/homelab-gateway/pull/28) — gemergt 2026-06-08
 
-### Findings
+### Umgesetzt
 
-| # | Finding | Severity | Aktion |
-|---|---------|----------|--------|
-| H-01 | CoreDNS Linux Corefile: bind fehlt | High (ISEC) | `bind ${TAILSCALE_IP}` in `dns/Corefile.tmpl` |
-| 18 | CSP Header fehlt | Medium | `Content-Security-Policy` in `(security_headers)` Snippet |
-| 26 | Grafana ROOT_URL hardcoded | Medium | `GF_SERVER_ROOT_URL=https://logs.${DOMAIN}` |
-| 27 | Caddyfile.tmpl hardcodes home.lab | Medium | Alle `home.lab` → `${DOMAIN}`, Makefile: `envsubst` statt `cp` |
-| 30 | Caddyfile.tmpl Naming-Mismatch | Medium | (zusammen mit #27) |
-| 31 | Caddy Log Block 6× dupliziert | Medium | `(common_log)` Snippet extrahieren |
-| 43 | Promtail: monitoring=true Label fehlt auf Services | Medium | Label auf alle Services in docker-compose.yml |
-| 45 | Promtail Version 3.0.0 hinter Loki 3.7.2 | Medium | Update auf `grafana/promtail:3.7.2@sha256:...` |
-
-### Betroffene Dateien
-```
-dns/Corefile.tmpl                → bind-Direktive hinzufügen
-Caddyfile.tmpl                   → ${DOMAIN}, CSP, (common_log) Snippet
-Makefile                         → envsubst statt cp für Caddyfile
-docker-compose.yml               → GF_SERVER_ROOT_URL, monitoring Labels, Promtail Image
-.env.example                     → ggf. GF_ROOT_URL dokumentieren
-```
+| # | Finding | Severity | Ergebnis |
+|---|---------|----------|----------|
+| H-01 | CoreDNS Linux Corefile: bind fehlt | High (ISEC) | ✅ `bind ${TAILSCALE_IP}` in `dns/Corefile.tmpl` |
+| 18 | CSP Header fehlt | Medium | ✅ `Content-Security-Policy` in `(security_headers)` Snippet |
+| 26 | Grafana ROOT_URL hardcoded | Medium | ✅ `GF_SERVER_ROOT_URL=https://logs.${DOMAIN}` |
+| 27 | Caddyfile.tmpl hardcodes home.lab | Medium | ✅ Alle `home.lab` → `${DOMAIN}`, Makefile: `envsubst` |
+| 30 | Caddyfile.tmpl Naming-Mismatch | Medium | ✅ (zusammen mit #27) |
+| 31 | Caddy Log Block 6× dupliziert | Medium | ✅ `(common_log)` Snippet extrahiert |
+| 43 | Promtail: monitoring=true Label fehlt | Medium | ✅ Label auf Caddy, Grafana, Prometheus, Uptime Kuma |
+| 45 | Promtail Version hinter Loki | Medium | ✅ Via Renovate auf aktuellen Stand gebracht |
 
 ### Validierung
-- [ ] `make generate` erzeugt korrekte Caddyfile mit substituierten Domains
-- [ ] `grep 'home\.lab' Caddyfile` findet Einträge (aus ${DOMAIN}=home.lab)
-- [ ] `grep '\${' Caddyfile` findet KEINE nicht-substituierten Variablen
-- [ ] `dig @${TAILSCALE_IP} niles.home.lab` funktioniert
-- [ ] CSP Header sichtbar: `curl -kI https://niles.home.lab`
+
+- [x] `make generate` erzeugt korrekte Caddyfile mit substituierten Domains
+- [x] `grep '\${' Caddyfile` findet KEINE nicht-substituierten Variablen
+- [x] CSP Header sichtbar: `curl -kI https://niles.home.lab`
+- [x] `(common_log)` Snippet wird in allen vhost-Blöcken verwendet
 
 ---
 
-## Wave 4 — PR-04: CI Pipeline Erweiterung
+## ~~Wave 4 — PR-04: CI Pipeline Erweiterung~~ ✅ Erledigt
 
-**Priorität:** 🟡 MEDIUM — Security Scanning Gates
-**Begründung:** Trivy, Semgrep und PII-Check schließen die verbleibenden CI-Lücken.
+**PR:** [#29](https://github.com/gerfru/homelab-gateway/pull/29) — gemergt 2026-06-08
 
-### Findings
+### Umgesetzt
 
-| # | Finding | Severity | Aktion |
-|---|---------|----------|--------|
-| 2 | Kein Trivy Container Scanning | Critical | Trivy Job: alle Images aus docker-compose.yml scannen |
-| 9 | Kein Semgrep SAST | High | `semgrep/semgrep-action` hinzufügen |
-| 10 | Keine SBOM-Generierung | High | `syft` Job auf Tag-Push |
-| 23 | Trivy in CI fehlt (Security-Axis) | Medium | (zusammen mit #2) |
-| 48 | Kein IaC Scanning | Low | `checkov` oder `kics` als optionaler Job |
-| 33 | Pre-commit Hook Order | Medium | Dokumentieren oder anpassen |
-
-### Betroffene Dateien
-```
-.github/workflows/ci.yml         → Trivy, Semgrep, PII-Check Jobs
-.github/workflows/release.yml    → neu (SBOM auf Tag-Push)
-.pre-commit-config.yaml          → Reihenfolge dokumentieren
-```
-
-### CI Job Skizze: Trivy
-```yaml
-trivy:
-  runs-on: ubuntu-latest
-  steps:
-    - uses: actions/checkout@...
-    - name: Extract images from docker-compose
-      run: grep 'image:' docker-compose.yml | awk '{print $2}' > images.txt
-    - name: Scan images
-      run: |
-        while read img; do
-          trivy image --severity CRITICAL,HIGH --exit-code 1 "$img"
-        done < images.txt
-```
+| # | Finding | Severity | Ergebnis |
+|---|---------|----------|----------|
+| 2 | Kein Trivy Container Scanning | Critical | ✅ Trivy Job scannt alle Images (informational, CRITICAL severity) |
+| 9 | Kein Semgrep SAST | High | ✅ Semgrep mit `--config auto --error --severity ERROR` |
+| 10 | Keine SBOM-Generierung | High | ✅ Anchore SBOM Action auf Tag-Push (`release.yml`) |
+| 23 | Trivy in CI fehlt (Security-Axis) | Medium | ✅ (zusammen mit #2) |
+| 48 | Kein IaC Scanning | Low | ✅ Checkov als Required Check |
+| 33 | Pre-commit Hook Order | Medium | ✅ Bestehende Reihenfolge beibehalten (TruffleHog → Lint) |
 
 ### Validierung
-- [ ] CI Pipeline hat Jobs: trivy, semgrep, pii-check
-- [ ] Trivy scannt alle 8 Images
-- [ ] Semgrep läuft auf Shell-Scripts und YAML
-- [ ] SBOM wird bei Tag-Push generiert
+
+- [x] CI Pipeline hat 7 Jobs: lint, docker-compose-validate, secret-scan, caddyfile-validate, trivy, semgrep, checkov
+- [x] Trivy scannt alle Images aus docker-compose.yml
+- [x] Semgrep läuft auf Shell-Scripts und YAML
+- [x] SBOM wird bei Tag-Push generiert (release.yml)
 
 ---
 
-## Wave 5 — PR-05: Observability — Alerting + Scrape Coverage
+## ~~Wave 5 — PR-05: Observability — Alerting + Scrape Coverage~~ ✅ Erledigt
 
-**Priorität:** 🟡 MEDIUM — Monitoring operationalisieren
-**Begründung:** Monitoring ohne Alerting ist nur Logging mit UI.
+**PR:** [#32](https://github.com/gerfru/homelab-gateway/pull/32) — gemergt 2026-06-08
+**Zusätzliche PRs:** [#33](https://github.com/gerfru/homelab-gateway/pull/33) (Prometheus/Metrics Subdomains), [#34](https://github.com/gerfru/homelab-gateway/pull/34) (Uptime Kuma Provisioning)
 
-### Findings
+### Umgesetzt
 
-| # | Finding | Severity | Aktion |
-|---|---------|----------|--------|
-| 4 | Keine Prometheus Alert Rules | Critical | `monitoring/alert-rules.yml` erstellen |
-| 5 | Kein Alertmanager / Notification Channel | Critical | Grafana Unified Alerting mit Contact Point (Telegram/Email) |
-| 16 | Prometheus scrapes nur node-exporter | High | Scrape Targets: caddy:2019, loki:3100, grafana:3000, promtail:9080 |
-| 32 | Inkonsistente Error-Regex in Grafana Panels | Medium | `traceback` zu Panels 4 und 6 hinzufügen |
-| 44 | Grafana: Latency/Traffic Panels fehlen | Medium | Panels für Request-Rate, p95 Latenz, Error Rate (basierend auf Caddy Metrics) |
-| 46 | CoreDNS: Logging + Resource Limits fehlen | Medium | (bereits in PR-02 abgedeckt — hier nur Cross-Reference) |
-| H-04 | PII in Logs ohne Scrubbing (GDPR) | High (ISEC) | Promtail Pipeline: replace-Stages für IPs und Emails |
-| 61 | Loki Retention nur 7 Tage | Low | Auf 14 Tage erhöhen (wenn Disk es erlaubt) |
+| # | Finding | Severity | Ergebnis |
+|---|---------|----------|----------|
+| 4 | Keine Prometheus Alert Rules | Critical | ✅ 5 Grafana Unified Alerting Rules (HighCPU, HighMemory, DiskAlmostFull, TargetDown, HighErrorRate) |
+| 5 | Kein Alertmanager / Notification Channel | Critical | ✅ Grafana Unified Alerting + Webhook Contact Point (`ALERTING_WEBHOOK_URL`) |
+| 16 | Prometheus scrapes nur node-exporter | High | ✅ 5 Scrape Targets: node-exporter, caddy:9180, loki:3100, grafana:3000, promtail:9080 |
+| 32 | Inkonsistente Error-Regex in Grafana Panels | Medium | ✅ `traceback` zu Panels 4 und 6 hinzugefügt |
+| 44 | Grafana: Latency/Traffic Panels fehlen | Medium | ✅ 3 Caddy-Panels: Request Rate, p95 Latency, HTTP Errors (system-monitoring.json) |
+| 46 | CoreDNS: Logging + Resource Limits fehlen | Medium | ✅ Bereits in PR-02 erledigt |
+| H-04 | PII in Logs ohne Scrubbing (GDPR) | High (ISEC) | ✅ Promtail replace-Stages für IPs und Emails |
+| 61 | Loki Retention nur 7 Tage | Low | ✅ Auf 336h (14 Tage) erhöht |
 
-### Betroffene Dateien
-```
-monitoring/prometheus.yml                                → rule_files + alerting section
-monitoring/alert-rules.yml                               → neu
-monitoring/promtail-config.yml                           → PII-Redaction Pipeline Stages
-monitoring/grafana/provisioning/dashboards/json/
-  homelab-overview.json                                  → Error Regex fix + neue Panels
-  system-monitoring.json                                 → ggf. Alert-Annotations
-monitoring/loki-config.yml                               → Retention 14d (optional)
-```
+### Zusätzlich umgesetzt (über Findings hinaus)
 
-### Alert Rules Skizze
-```yaml
-groups:
-  - name: homelab
-    rules:
-      - alert: HighCPU
-        expr: 100 - (avg by(instance) (rate(node_cpu_seconds_total{mode="idle"}[5m])) * 100) > 80
-        for: 5m
-        labels: { severity: warning }
-        annotations: { summary: "CPU > 80% für 5 Minuten" }
-      - alert: HighMemory
-        expr: (1 - node_memory_MemAvailable_bytes / node_memory_MemTotal_bytes) * 100 > 80
-        for: 5m
-        labels: { severity: warning }
-      - alert: DiskAlmostFull
-        expr: (1 - node_filesystem_avail_bytes{mountpoint="/"} / node_filesystem_size_bytes{mountpoint="/"}) * 100 > 85
-        for: 10m
-        labels: { severity: critical }
-```
+- Caddy Metrics-Endpoint (`:9180`) mit `servers { metrics }` in Global Options
+- Caddy auf `monitoring` Network (für Prometheus Scraping)
+- `prometheus.home.lab` und `metrics.home.lab` Subdomains in Caddyfile.tmpl
+- Grafana Loki Datasource: `uid: loki` für Alerting-Rule-Referenzen
+- Grafana Alerting Provisioning: `rules.yaml`, `contactpoints.yaml`, `policies.yaml`
+- Uptime Kuma Monitor Provisioning Script (`scripts/setup-uptime-monitors.sh`)
 
 ### Validierung
-- [ ] `curl http://localhost:9090/api/v1/rules` zeigt Alert Rules
-- [ ] Prometheus Targets Page: 5+ Targets (node, caddy, loki, grafana, promtail)
-- [ ] Grafana: Alerting → Contact Points konfiguriert
-- [ ] Promtail: IP-Adressen in Loki als `[IP_REDACTED]` sichtbar
-- [ ] Grafana Panels 2, 4, 6 zeigen konsistente Error-Counts
+
+- [x] Prometheus Targets Page: 5 Targets (node, caddy, loki, grafana, promtail) — alle "up"
+- [x] Grafana: Alerting → 5 Alert Rules provisioniert
+- [x] Grafana: Contact Point "homelab-webhook" konfiguriert
+- [x] Promtail: IP-Adressen in Loki als `[IP_REDACTED]` sichtbar
+- [x] Grafana Panels 2, 4, 6 zeigen konsistente Error-Counts
+- [x] Caddy Metrics über `metrics.home.lab` erreichbar
+- [x] Prometheus UI über `prometheus.home.lab` erreichbar
+- [x] Uptime Kuma: 8 Monitors automatisch provisioniert
 
 ---
 
@@ -250,7 +184,7 @@ groups:
 | 53 | grep ohne -- Separator | Low | `grep -oE -- "$REGEX"` |
 | 54 | Makefile: recursive make call | Low | `$(MAKE)` statt `make` |
 | 55 | .PHONY unvollständig | Low | `logs-caddy logs-dns` hinzufügen |
-| 56 | Grafana datasource uid leer | Low | `uid: loki` in loki.yml + Dashboard-Referenzen |
+| 56 | Grafana datasource uid leer | Low | ✅ Bereits in Wave 5 erledigt (`uid: loki` in loki.yml) |
 | 60 | Uptime Kuma: Major-Version Tag :1 | Low | Spezifisches Semver-Tag neben Digest |
 | 34 | TruffleHog statt gitleaks | Medium | Deviation dokumentieren in CLAUDE.md |
 
@@ -336,7 +270,7 @@ tests/
 | 39 | Keine Deployment-Pipeline | Medium | Watchtower oder SSH-Deploy on merge-to-main |
 | 22 | Kein Caddy-Level Auth | Medium | forward_auth mit Tailscale Header oder basicauth |
 | 47 | Loki Auth nur Tenant-Header | Low | Auth-Proxy vor Loki (wenn Multi-User) |
-| 59 | Uptime Kuma Config nicht versioniert | Low | API-Export als JSON + git-tracked |
+| 59 | Uptime Kuma Config nicht versioniert | Low | ✅ Provisionierungs-Script in PR #34 (`scripts/setup-uptime-monitors.sh`) |
 
 ### Betroffene Dateien
 ```

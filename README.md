@@ -52,6 +52,7 @@ TAILSCALE_IP=100.x.x.x                        # tailscale ip -4
 DOMAIN=home.lab
 GF_ADMIN_USER=admin
 GF_ADMIN_PASSWORD=<strong-password>
+ALERTING_WEBHOOK_URL=https://your-webhook-url  # optional, for Grafana alerts
 ```
 
 ### 2. Generate config from templates
@@ -107,14 +108,10 @@ curl -k https://garmin.home.lab/health
 
 2. Add a vhost block to `Caddyfile.tmpl`:
    ```caddyfile
-   myapp.home.lab {
+   myapp.${DOMAIN} {
        tls internal
        import security_headers
-       log {
-           output stdout
-           format json
-           level INFO
-       }
+       import common_log
        reverse_proxy myapp-container:8000
    }
    ```
@@ -141,25 +138,29 @@ The DNS wildcard already resolves `myapp.home.lab` to your server — no DNS cha
 | `make dns-status` | Check if CoreDNS is running |
 | `make status` | Container + DNS status |
 | `make clean` | Stop + remove volumes + generated files |
+| `./scripts/setup-uptime-monitors.sh` | Provision Uptime Kuma monitors from Caddyfile.tmpl |
 
 ## Architecture
 
 ```
 homelab-gateway (this repo)
-├── CoreDNS ──── *.home.lab -> Tailscale IP (port 53)
-├── Caddy ────── SNI routing on port 443
-│                 ├── niles.home.lab    -> niles_core:8000
-│                 ├── garmin.home.lab   -> pulsebase-api:8000
-│                 ├── vikunja.home.lab  -> vikunja:3456
-│                 ├── whatsapp.home.lab -> evolution_api:8080
-│                 ├── status.home.lab   -> gateway-uptime:3001
-│                 └── logs.home.lab     -> gateway-grafana:3000
-├── Loki ─────── Centralized log aggregation (port 3100, localhost only)
-├── Grafana ──── Dashboards for logs and system metrics (via Caddy)
-├── Promtail ─── Log collection via Docker labels (monitoring=true)
-├── Prometheus ─ Time-series metrics storage (30d retention, 500MB cap)
-├── node_exporter System metrics collector (CPU, RAM, disk, network)
-└── Uptime Kuma  Service health monitoring
+├── CoreDNS ──────── *.home.lab -> Tailscale IP (port 53)
+├── Caddy ────────── HTTPS reverse proxy on port 443
+│                     ├── niles.home.lab      -> niles_core:8000
+│                     ├── garmin.home.lab     -> pulsebase-api:8000
+│                     ├── vikunja.home.lab    -> vikunja:3456
+│                     ├── whatsapp.home.lab   -> evolution_api:8080
+│                     ├── status.home.lab     -> gateway-uptime:3001
+│                     ├── logs.home.lab       -> gateway-grafana:3000
+│                     ├── prometheus.home.lab -> prometheus:9090
+│                     └── metrics.home.lab    -> localhost:9180
+├── Loki ─────────── Centralized log aggregation (port 3100, localhost only)
+├── Grafana ──────── Dashboards, alerting (Unified Alerting + webhook)
+├── Promtail ─────── Log collection via Docker labels (monitoring=true)
+├── Prometheus ───── Time-series metrics (5 scrape targets, 30d retention)
+├── node-exporter ── System metrics collector (CPU, RAM, disk, network)
+├── Docker Socket Proxy  Read-only Docker API proxy for Promtail
+└── Uptime Kuma ──── Service health monitoring (auto-provisioned)
 
 Other repos (connect via external 'proxy' network):
 ├── Niles         (niles_core, evolution_api, vikunja)
@@ -175,14 +176,20 @@ Other repos (connect via external 'proxy' network):
 
 ### Monitoring
 
-Promtail auto-discovers containers with the `monitoring=true` Docker label. To include a container in centralized logging, add:
+Promtail auto-discovers containers with the `monitoring=true` Docker label via Docker Socket Proxy (read-only). To include a container in centralized logging, add:
 
 ```yaml
 labels:
   - "monitoring=true"
 ```
 
-Logs are tagged with a `project` label (from `com.docker.compose.project`) so you can filter by project in Loki queries. Browse logs at `https://logs.home.lab` (Grafana with Loki pre-configured as datasource).
+Logs are tagged with a `project` label (from `com.docker.compose.project`) so you can filter by project in Loki queries. PII (IP addresses, email addresses) is automatically redacted before ingestion into Loki. Browse logs at `https://logs.home.lab` (Grafana with Loki pre-configured as datasource).
+
+**Prometheus scrape targets:** node-exporter, Caddy, Loki, Grafana, Promtail — all on the internal `monitoring` network.
+
+**Alerting:** Grafana Unified Alerting with 5 rules (HighCPU, HighMemory, DiskAlmostFull, TargetDown, HighErrorRate). Notifications via configurable webhook (`ALERTING_WEBHOOK_URL` in `.env`). Alert rules are provisioned declaratively from `monitoring/grafana/provisioning/alerting/`.
+
+**Uptime Kuma monitors:** Auto-provisioned from `Caddyfile.tmpl` subdomains via `./scripts/setup-uptime-monitors.sh`. The script parses the template, creates HTTPS monitors in Uptime Kuma's SQLite database, and is idempotent (skips existing monitors).
 
 ## Security
 
@@ -198,6 +205,8 @@ Logs are tagged with a `project` label (from `com.docker.compose.project`) so yo
 - All Docker images pinned by SHA256 digest
 - Promtail uses Docker Socket Proxy (read-only, containers-only access) instead of direct socket mount
 - Health checks on all services with shell access (Caddy, Grafana, Prometheus, node-exporter, Uptime Kuma, socket-proxy)
+- PII redaction in log pipeline (IP addresses and email addresses scrubbed before Loki ingestion)
+- CI pipeline: YAML lint, ShellCheck, docker-compose validate, Caddyfile validate, TruffleHog secret scan, Trivy container scan, Semgrep SAST, Checkov IaC scan
 
 ## Rollback
 
