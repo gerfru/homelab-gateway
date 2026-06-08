@@ -1,0 +1,177 @@
+apiVersion: 1
+groups:
+  - orgId: 1
+    name: homelab-system
+    folder: Homelab Alerts
+    interval: 1m
+    rules:
+      - uid: high-cpu
+        title: HighCPU
+        condition: B
+        data:
+          - refId: A
+            relativeTimeRange:
+              from: 300
+              to: 0
+            datasourceUid: prometheus
+            model:
+              expr: >-
+                100 - (avg(rate(node_cpu_seconds_total{mode="idle"}[5m])) * 100)
+              instant: true
+              refId: A
+          - refId: B
+            relativeTimeRange:
+              from: 0
+              to: 0
+            datasourceUid: __expr__
+            model:
+              type: threshold
+              expression: A
+              conditions:
+                - evaluator:
+                    type: gt
+                    params:
+                      - 80
+              refId: B
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: CPU usage above 80% for 5 minutes
+
+      - uid: high-memory
+        title: HighMemory
+        condition: B
+        data:
+          - refId: A
+            relativeTimeRange:
+              from: 300
+              to: 0
+            datasourceUid: prometheus
+            model:
+              expr: >-
+                (1 - node_memory_available_bytes / node_memory_total_bytes) * 100
+              instant: true
+              refId: A
+          - refId: B
+            relativeTimeRange:
+              from: 0
+              to: 0
+            datasourceUid: __expr__
+            model:
+              type: threshold
+              expression: A
+              conditions:
+                - evaluator:
+                    type: gt
+                    params:
+                      - 80
+              refId: B
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: Memory usage above 80% for 5 minutes
+
+      - uid: disk-almost-full
+        title: DiskAlmostFull
+        condition: B
+        data:
+          - refId: A
+            relativeTimeRange:
+              from: 600
+              to: 0
+            datasourceUid: prometheus
+            model:
+              expr: >-
+                (1 - node_filesystem_avail_bytes{mountpoint="/"}
+                / node_filesystem_size_bytes{mountpoint="/"}) * 100
+              instant: true
+              refId: A
+          - refId: B
+            relativeTimeRange:
+              from: 0
+              to: 0
+            datasourceUid: __expr__
+            model:
+              type: threshold
+              expression: A
+              conditions:
+                - evaluator:
+                    type: gt
+                    params:
+                      - 85
+              refId: B
+        for: 10m
+        labels:
+          severity: critical
+        annotations:
+          summary: Disk usage above 85% for 10 minutes
+
+      - uid: target-down
+        title: TargetDown
+        condition: B
+        data:
+          - refId: A
+            relativeTimeRange:
+              from: 300
+              to: 0
+            datasourceUid: prometheus
+            model:
+              expr: up == 0
+              instant: true
+              refId: A
+          - refId: B
+            relativeTimeRange:
+              from: 0
+              to: 0
+            datasourceUid: __expr__
+            model:
+              type: threshold
+              expression: A
+              conditions:
+                - evaluator:
+                    type: gt
+                    params:
+                      - 0
+              refId: B
+        for: 3m
+        labels:
+          severity: critical
+        annotations:
+          summary: "Scrape target {{ $labels.job }} is down"
+
+      - uid: high-error-rate
+        title: HighErrorRate
+        condition: B
+        data:
+          - refId: A
+            relativeTimeRange:
+              from: 300
+              to: 0
+            datasourceUid: loki
+            model:
+              expr: >-
+                sum(count_over_time({project=~".+"}
+                |~ "(?i)error|exception|traceback|critical" [5m]))
+              instant: true
+              refId: A
+          - refId: B
+            relativeTimeRange:
+              from: 0
+              to: 0
+            datasourceUid: __expr__
+            model:
+              type: threshold
+              expression: A
+              conditions:
+                - evaluator:
+                    type: gt
+                    params:
+                      - 20
+              refId: B
+        for: 2m
+        labels:
+          severity: warning
+        annotations:
+          summary: More than 20 errors in logs within 5 minutes
