@@ -257,7 +257,7 @@ services:
         max-file: "2"
 
   prometheus:
-    image: prom/prometheus:v3.4.1@sha256:9abc6cf6aea7710d163dbb28d8eeb7dc5baef01e38fa4cd146a406dd9f07f70d
+    image: prom/prometheus:v3.12.0@sha256:69f5241418838263316593f7274a304b095c40bcf22e57272865da91bd60a8ac
     container_name: gateway-prometheus
     restart: unless-stopped
     user: "65534:65534"
