@@ -194,9 +194,10 @@ Logs are tagged with a `project` label (from `com.docker.compose.project`) so yo
 - Grafana requires login (anonymous access disabled)
 - Loki tenant authentication enabled (`X-Scope-OrgID: homelab`)
 - Loki only accessible from localhost (`127.0.0.1:3100`)
-- All containers run with `no-new-privileges` and minimal capabilities
+- All containers run with `no-new-privileges`, `cap_drop: ALL`, and `read_only` where possible
 - All Docker images pinned by SHA256 digest
-- Promtail mounts Docker socket read-only for container log discovery
+- Promtail uses Docker Socket Proxy (read-only, containers-only access) instead of direct socket mount
+- Health checks on all services with shell access (Caddy, Grafana, Prometheus, node-exporter, Uptime Kuma, socket-proxy)
 
 ## Rollback
 
