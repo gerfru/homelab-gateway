@@ -1,5 +1,8 @@
 {
 	default_sni ${DOMAIN}
+	servers {
+		metrics
+	}
 }
 
 (security_headers) {
@@ -68,4 +71,9 @@ logs.${DOMAIN} {
 	import security_headers
 	import common_log
 	reverse_proxy gateway-grafana:3000
+}
+
+# Prometheus metrics (internal only)
+:9180 {
+	metrics /metrics
 }
