@@ -1,4 +1,10 @@
 # .pre-commit-config.yaml
+#
+# Hook order (intentional — fail fast on security, then lint):
+#   1. TruffleHog — abort immediately if secrets are staged
+#   2. PII Check  — catch personal IPs/hostnames before they reach the repo
+#   3. YAML Lint  — syntax validation
+#   4. ShellCheck — shell script quality
 repos:
   # --- Secret Scanning ---
   - repo: https://github.com/trufflesecurity/trufflehog
