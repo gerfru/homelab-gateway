@@ -1,420 +1,488 @@
 # Security Code Review Report — homelab-gateway
 
-Sprache: Shell/Bash, Python 3, YAML, Caddyfile | Framework: Docker Compose, CoreDNS, Caddy, Grafana/Loki/Prometheus | Datum: 2026-06-05
+**Language:** Bash, YAML, JSON (Infrastructure-as-Code)
+**Framework:** Docker Compose, Caddy, CoreDNS, Grafana Stack
+**Date:** 2026-06-08
+**Reviewer:** Claude Opus 4.6 (ISEC methodology)
+**Scope:** Security · Code Quality · Compliance (GDPR, ISO 27001, EU AI Act)
 
-## Gesamtbewertung
+---
 
-🟠 **HIGH** — Das Projekt zeigt gute Grundlagen (Secrets-Scanning, PII-Hook, Image-Pinning, Resource-Limits), hat aber mehrere mittlere bis hohe Findings: eine echte Tailscale-IP im versionierten `.env.example`, fehlende Application-Layer-Authentifizierung auf mehreren Services, Docker-Socket-Mount, und Container die als Root laufen.
+## Overall Assessment
+
+**🟡 YELLOW** — Strong security fundamentals (digest-pinned images, network segmentation, `no-new-privileges` on all containers, pre-commit secret scanning, proper `.env` handling) with significant gaps in container privilege isolation (Docker socket exposure, full host filesystem mount) and missing CI security gates (Trivy, Semgrep, GitHub-native secret scanning).
 
 ---
 
 ## Findings
 
-### 🟠 High (3)
+### 🔴 Critical (2)
 
 ---
 
-### [🟠 HIGH] Reale Tailscale-IP in versioniertem `.env.example`
-
+### [CRITICAL] C-01: Docker Socket Exposed to Promtail Container
 **Category:** Security
-**Location:** [.env.example:3](.env.example#L3)
-**CWE:** CWE-200 (Exposure of Sensitive Information)
-
-**What:** Die `.env.example` enthält die echte Tailscale-IP `100.85.159.70` statt eines Platzhalters. Diese Datei ist versioniert und damit in der Git-Historie permanent gespeichert.
-
-**Why it matters:** Die Tailscale-IP identifiziert den konkreten Host im Tailnet. Ein Angreifer, der Zugang zum Tailnet erlangt (kompromittiertes Gerät, gestohlener Auth-Key), kann diesen Host direkt adressieren. Da alle Services ohne Application-Layer-Auth laufen (s.u.), bedeutet Kenntnis der IP sofortigen Zugriff auf DNS, Grafana, Loki, etc. Selbst nach Korrektur bleibt die IP in `git log` sichtbar — ein `git filter-branch` oder BFG Repo-Cleaner wäre nötig, um sie vollständig zu entfernen.
-
-**Fix:**
-```bash
-# .env.example — nur Platzhalter
-TAILSCALE_IP=100.x.y.z
-DOMAIN=home.lab
-UPTIME_KUMA_USERNAME=admin
-UPTIME_KUMA_PASSWORD=changeme
-```
-Zusätzlich: Die aktuelle IP aus der Git-Historie entfernen (z.B. mit `git filter-repo` oder BFG Repo-Cleaner), falls das Repository jemals öffentlich war oder wird.
-
-**Learn more:** [MIT 6.566 Lec 6](https://css.csail.mit.edu/6.858/2024/) — Privilege separation; Secrets Management
-
----
-
-### [🟠 HIGH] Grafana ohne Authentifizierung (Anonymous Viewer)
-
-**Category:** Security
-**Location:** [docker-compose.yml:91-92](docker-compose.yml#L91-L92)
-**CWE:** CWE-306 (Missing Authentication for Critical Function)
-
-**What:** Grafana ist mit `GF_AUTH_ANONYMOUS_ENABLED=true` und `GF_AUTH_ANONYMOUS_ORG_ROLE=Viewer` konfiguriert. Jeder im Tailnet kann ohne Login alle Dashboards, Logs und Metriken einsehen.
-
-**Why it matters:** Grafana-Dashboards und die Loki-Explore-Funktion können sensible Informationen preisgeben: Container-Logs (die API-Keys, Fehler mit Stack Traces, Benutzerdaten enthalten können), System-Metriken (CPU, Memory, Disk — nützlich für Reconnaissance), und Service-URLs. Ein kompromittiertes Tailnet-Gerät (z.B. ein Smartphone) gibt sofort Zugang zu allen Observability-Daten. Defense-in-Depth erfordert, dass auch interne Services authentifiziert sind.
-
-**Fix:**
-```yaml
-# docker-compose.yml — Grafana environment
-environment:
-  - GF_AUTH_ANONYMOUS_ENABLED=false
-  - GF_AUTH_BASIC_ENABLED=true
-  # Alternativ: Tailscale Auth Proxy oder OAuth
-  - GF_SERVER_ROOT_URL=https://logs.home.lab
-```
-
-**Learn more:** [MIT 6.566 Lec 17](https://css.csail.mit.edu/6.858/2024/) — User authentication
-
----
-
-### [🟠 HIGH] Docker-Socket-Mount in Promtail
-
-**Category:** Security
-**Location:** [docker-compose.yml:69](docker-compose.yml#L69)
-**CWE:** CWE-269 (Improper Privilege Management)
-
-**What:** Promtail mountet `/var/run/docker.sock:/var/run/docker.sock:ro`. Obwohl read-only, gewährt dies dem Container Zugriff auf die Docker-API.
-
-**Why it matters:** Über den Docker-Socket (selbst read-only) kann ein Container alle laufenden Container auflisten, deren Environment-Variablen lesen (einschließlich Secrets wie `UPTIME_KUMA_PASSWORD`), Logs aller Container lesen, und Image-Details inspizieren. Eine Schwachstelle in Promtail (z.B. CVE in der Grafana-Promtail-Codebase) könnte dazu führen, dass ein Angreifer diese Informationen exfiltriert. Für Log-Collection gibt es sicherere Alternativen.
-
-**Fix:**
-Zwei Optionen:
-1. **Docker-Log-Dateien direkt mounten** (ohne Socket):
-```yaml
-volumes:
-  - /var/lib/docker/containers:/var/lib/docker/containers:ro
-# Docker-Socket-Mount entfernen, stattdessen statische Targets nutzen
-```
-2. **Promtail durch einen Socket-Proxy absichern** (z.B. `tecnativa/docker-socket-proxy`) der nur bestimmte API-Endpunkte erlaubt.
-
-**Learn more:** [ISEC Cloud Operating Systems](https://www.isec.tugraz.at/course/cloud-operating-systems-705050-sommersemester-2026/) | [MIT 6.566 Lec 2-3](https://css.csail.mit.edu/6.858/2024/) — Container isolation
-
----
-
-### 🟡 Medium (5)
-
----
-
-### [🟡 MEDIUM] Node Exporter: Host-Root-Filesystem und PID-Namespace
-
-**Category:** Security
-**Location:** [docker-compose.yml:121-123](docker-compose.yml#L121-L123)
-**CWE:** CWE-269 (Improper Privilege Management)
-
-**What:** Node Exporter mountet das gesamte Host-Root-Filesystem (`/:/host:ro`) und teilt den Host-PID-Namespace (`pid: host`).
-
-**Why it matters:** Obwohl read-only, hat der Container Lesezugriff auf alle Dateien des Hosts: `/etc/shadow`, SSH-Keys, `.env`-Dateien, TLS-Zertifikate. Bei einer RCE-Schwachstelle in Node Exporter könnte ein Angreifer alle Host-Dateien lesen. Der `pid: host`-Namespace ermöglicht das Auflisten aller Host-Prozesse und deren Kommandozeilen-Argumente (die manchmal Secrets enthalten).
-
-**Fix:**
-```yaml
-node-exporter:
-  # ...
-  volumes:
-    - /proc:/host/proc:ro
-    - /sys:/host/sys:ro
-    - /:/host/rootfs:ro  # Wenn voller Zugriff wirklich nötig
-  command:
-    - "--path.procfs=/host/proc"
-    - "--path.sysfs=/host/sys"
-    - "--path.rootfs=/host/rootfs"
-    - "--collector.filesystem.mount-points-exclude=^/(dev|proc|sys|var/lib/docker/.+)($$|/)"
-  # Security-Hardening:
-  security_opt:
-    - no-new-privileges:true
-  read_only: true
-```
-[Schlussfolgerung] Der volle Root-Mount ist der übliche Ansatz für Node Exporter. Das Risiko ist akzeptabel, wenn die Container-Isolation intakt bleibt. Dennoch empfohlen: `read_only: true` und `no-new-privileges`.
-
-**Learn more:** [ISEC Cloud Operating Systems](https://www.isec.tugraz.at/course/cloud-operating-systems-705050-sommersemester-2026/)
-
----
-
-### [🟡 MEDIUM] Loki ohne Authentifizierung
-
-**Category:** Security
-**Location:** [monitoring/loki-config.yml:1](monitoring/loki-config.yml#L1)
-**CWE:** CWE-306 (Missing Authentication for Critical Function)
-
-**What:** Loki läuft mit `auth_enabled: false`. Jeder Service im `monitoring`-Docker-Netzwerk kann Logs lesen, schreiben und löschen.
-
-**Why it matters:** Ein kompromittierter Container im `monitoring`-Netzwerk kann: (1) alle Logs lesen (die PII, API-Keys, oder Fehlermeldungen enthalten können), (2) falsche Log-Einträge injizieren (Log-Tampering — erschwert Forensik nach einem Vorfall), (3) Logs löschen (über die Loki-API). Obwohl Loki nur auf `127.0.0.1:3100` gebunden ist (nicht extern erreichbar), ist die Docker-interne Erreichbarkeit via `loki:3100` ohne Auth ein Risiko.
-
-**Fix:**
-```yaml
-# loki-config.yml
-auth_enabled: true
-# Dann in promtail-config.yml und Grafana-Datasource den Tenant-Header setzen:
-# X-Scope-OrgID: homelab
-```
-
-**Learn more:** [MIT 6.566 Lec 6](https://css.csail.mit.edu/6.858/2024/) — Privilege separation
-
----
-
-### [🟡 MEDIUM] Alle Container laufen als Root
-
-**Category:** Security
-**Location:** [docker-compose.yml](docker-compose.yml) (global)
+**Location:** [docker-compose.yml:86](docker-compose.yml#L86)
 **CWE:** CWE-250 (Execution with Unnecessary Privileges)
 
-**What:** Keiner der Container definiert einen nicht-privilegierten User (`user:`-Direktive fehlt). Alle Prozesse laufen als UID 0 (root) innerhalb der Container.
+**What:** Promtail is granted access to `/var/run/docker.sock`, which provides full Docker API access and effectively root-equivalent control over the host despite the `:ro` flag.
 
-**Why it matters:** Falls ein Container-Escape gelingt (z.B. über eine Kernel-Schwachstelle wie CVE-2019-5736 / runc escape), läuft der entflohene Prozess als root auf dem Host. Wenn Container als non-root User laufen, wird ein Escape deutlich weniger kritisch, da der Host-User keine Privilegien hat.
+**Why it matters:** The Docker socket is the Docker daemon's control plane. Any process with socket access can create privileged containers, mount the host filesystem, and achieve full host compromise. The `:ro` mount flag prevents writing to the socket *file inode* but does **not** prevent sending API requests (POST, DELETE) through the socket. An attacker who compromises Promtail (e.g., via a vulnerability in the log ingestion pipeline) gains full root-equivalent access to the host. This is a well-known container escape vector documented in the CIS Docker Benchmark (5.31).
 
 **Fix:**
-```yaml
-# Für jeden Container, wo möglich:
-services:
-  loki:
-    user: "10001:10001"
-    # ...
-  promtail:
-    user: "10001:10001"
-    # ...
-  grafana:
-    user: "472:0"  # Grafana's offizieller non-root User
-    # ...
-  prometheus:
-    user: "65534:65534"  # nobody
-    # ...
-```
-Hinweis: Grafana (`grafana/grafana`) unterstützt offiziell non-root. Prometheus und Loki ebenfalls. Node Exporter und CoreDNS benötigen ggf. spezifische Capabilities.
+1. **Preferred:** Replace Docker socket access with file-based log scraping. The container log directory is already mounted at line 85 (`/var/lib/docker/containers`). Remove the socket mount and switch Promtail from `docker_sd_configs` to file-based `static_configs` targeting the container log paths.
+2. **Alternative:** Use a Docker socket proxy ([Tecnativa/docker-socket-proxy](https://github.com/Tecnativa/docker-socket-proxy)) that exposes only safe read-only endpoints (containers list, container inspect) and blocks dangerous operations (create, exec, volumes):
 
-**Learn more:** [MIT 6.566 Lec 6](https://css.csail.mit.edu/6.858/2024/) — Privilege separation
+```yaml
+docker-socket-proxy:
+  image: tecnativa/docker-socket-proxy:latest
+  environment:
+    CONTAINERS: 1
+    POST: 0
+  volumes:
+    - /var/run/docker.sock:/var/run/docker.sock:ro
+  networks:
+    - monitoring
+
+promtail:
+  # Remove: /var/run/docker.sock:/var/run/docker.sock:ro
+  # Point docker_sd_configs host to docker-socket-proxy:2375
+```
+
+**Learn more:** CIS Docker Benchmark 5.31, OWASP Docker Security Cheat Sheet
 
 ---
 
-### [🟡 MEDIUM] Secrets als Environment-Variablen in Containern
-
+### [CRITICAL] C-02: Node-Exporter Mounts Entire Host Filesystem
 **Category:** Security
-**Location:** [docker-compose.yml:91-93](docker-compose.yml#L91-L93), [Makefile:4](Makefile#L4)
+**Location:** [docker-compose.yml:151](docker-compose.yml#L151)
+**CWE:** CWE-732 (Incorrect Permission Assignment for Critical Resource)
+
+**What:** Node-exporter mounts the entire host root filesystem (`/:/host:ro`), exposing all host files (including `/etc/shadow`, SSH keys, and the `.env` file containing credentials) to the container.
+
+**Why it matters:** While the mount is read-only and node-exporter normally only reads `/proc` and `/sys` metrics, any vulnerability in node-exporter (or a container escape) would allow reading all secrets on the host. Combined with `pid: host` (line 145), the container has full visibility into host processes and their environments, potentially leaking secrets passed as environment variables to other processes.
+
+**Fix:** Mount only the specific paths node-exporter needs:
+```yaml
+volumes:
+  - /proc:/host/proc:ro
+  - /sys:/host/sys:ro
+  - /:/host/rootfs:ro  # Only if filesystem metrics needed
+command:
+  - "--path.procfs=/host/proc"
+  - "--path.sysfs=/host/sys"
+  - "--path.rootfs=/host/rootfs"
+  - "--collector.filesystem.mount-points-exclude=^/(dev|proc|sys|var/lib/docker/.+)($$|/)"
+```
+
+**Learn more:** CIS Docker Benchmark 5.5, MIT 6.566 — Container Security
+
+---
+
+### 🟠 High (4)
+
+---
+
+### [HIGH] H-01: CoreDNS Linux Template Missing bind Directive — Listens on All Interfaces
+**Category:** Security
+**Location:** [dns/Corefile.tmpl](dns/Corefile.tmpl), line 1
+**CWE:** CWE-668 (Exposure of Resource to Wrong Sphere)
+
+**What:** The Linux `Corefile.tmpl` does not include a `bind` directive. With `network_mode: host`, CoreDNS listens on all interfaces (0.0.0.0:53), not just the Tailscale IP. The macOS template correctly uses `bind ${TAILSCALE_IP}`.
+
+**Why it matters:** This exposes the DNS service to all network interfaces on the host. An attacker on the local network or the internet (if the host has a public IP) could query the DNS server, enumerate internal service names (`niles.home.lab`, `garmin.home.lab`, etc.), and use DNS as a reconnaissance tool.
+
+**Fix:** Add `bind` directive to `dns/Corefile.tmpl`:
+```
+${DOMAIN}:53 {
+    bind ${TAILSCALE_IP}
+    file /etc/coredns/home.lab.zone
+    log
+    errors
+}
+```
+
+**Learn more:** Stanford CS355 — Network Security, CIS Benchmark
+
+---
+
+### [HIGH] H-02: Weak Default Credentials in .env.example
+**Category:** Security
+**Location:** [.env.example:9-14](.env.example#L9)
+**CWE:** CWE-1393 (Use of Default Credentials)
+
+**What:** The `.env.example` ships with `admin/changeme` as default credentials for both Grafana and Uptime Kuma. Operators may deploy without changing these values.
+
+**Why it matters:** Default credentials are the most common initial access vector (OWASP A07:2021). Even in a Tailscale-protected network, if any device on the tailnet is compromised, these credentials provide immediate access to monitoring data.
+
+**Fix:**
+1. Change to clearly non-functional placeholders: `CHANGE_ME_BEFORE_DEPLOY`
+2. Add startup validation in Makefile `up` target:
+```makefile
+up: generate dns-up
+	@if [ "$(GF_ADMIN_PASSWORD)" = "changeme" ] || [ "$(GF_ADMIN_PASSWORD)" = "CHANGE_ME_BEFORE_DEPLOY" ]; then \
+		echo "ERROR: Change GF_ADMIN_PASSWORD in .env before deploying"; exit 1; fi
+```
+
+**Learn more:** OWASP Top 10 A07:2021, Stanford CS255 — Authentication
+
+---
+
+### [HIGH] H-03: Makefile `include .env` + `export` Leaks Secrets to All Child Processes
+**Category:** Security / Quality
+**Location:** [Makefile:3-4](Makefile#L3)
 **CWE:** CWE-526 (Exposure of Sensitive Information Through Environmental Variables)
 
-**What:** Das Makefile lädt `.env` via `include .env` / `export` — alle Variablen (inkl. `UPTIME_KUMA_PASSWORD`) werden als Environment-Variablen exportiert. Grafana erhält seine Konfiguration ebenfalls via Environment-Variablen.
+**What:** The Makefile uses `include .env` and `export`, loading all `.env` variables into every Make recipe's shell environment, including all child processes.
 
-**Why it matters:** Environment-Variablen sind einsehbar über: `docker inspect`, `/proc/<pid>/environ` auf dem Host, Crash-Dumps, und — wie oben beschrieben — über den Docker-Socket. Ein Angreifer mit Zugriff auf Promtail (Docker-Socket) kann `docker inspect gateway-grafana` ausführen und alle Environment-Variablen lesen.
+**Why it matters:** Every `docker`, `dig`, `brew`, `envsubst`, and shell command invoked by Make inherits all secrets (GF_ADMIN_PASSWORD, UPTIME_KUMA_PASSWORD). If any process logs its environment, crashes and generates a core dump, or has a command injection vulnerability, the secrets are exposed.
 
-**Fix:**
-Für Docker Compose: Docker Secrets oder Config-Files verwenden statt Environment-Variablen für sensitive Daten.
-```yaml
-# docker-compose.yml
-secrets:
-  uptime_kuma_password:
-    file: ./secrets/uptime_kuma_password.txt
-
-services:
-  # In Scripts: aus Datei lesen statt aus Env-Variable
+**Fix:** Remove blanket `export` and pass variables explicitly:
+```makefile
+include .env
+# Only export what docker-compose needs:
+up: generate dns-up
+	TAILSCALE_IP=$(TAILSCALE_IP) docker compose --env-file .env up -d
 ```
 
-**Learn more:** [ISEC Cloud Operating Systems](https://www.isec.tugraz.at/course/cloud-operating-systems-705050-sommersemester-2026/)
+**Learn more:** OWASP Secrets Management Cheat Sheet, MIT 6.566
 
 ---
 
-### [🟡 MEDIUM] TLS-Verifizierung global deaktiviert in Uptime Kuma Monitors
+### [HIGH] H-04: Promtail Log Pipeline May Ingest and Store PII Without Scrubbing
+**Category:** Compliance (GDPR)
+**Location:** [monitoring/promtail-config.yml:31-41](monitoring/promtail-config.yml#L31)
+**CWE:** CWE-532 (Insertion of Sensitive Information into Log File)
 
-**Category:** Security
-**Location:** [scripts/provision-uptime-kuma.py:107](scripts/provision-uptime-kuma.py#L107)
-**CWE:** CWE-295 (Improper Certificate Validation)
+**What:** Promtail's pipeline stages extract JSON fields but do not filter or redact sensitive data. All log content from monitored containers flows to Loki without PII scrubbing.
 
-**What:** Alle HTTP/Keyword-Monitors werden mit `ignoreTls=True` erstellt. Die TLS-Zertifikat-Validierung ist vollständig deaktiviert.
+**Why it matters:** Under GDPR Art. 25 (Data Protection by Design), personal data must be minimized. Application logs frequently contain IP addresses, user identifiers, email addresses, or request bodies with personal data. Without a redaction pipeline stage, PII is stored in Loki for 7 days.
 
-**Why it matters:** Da Caddy `tls internal` (selbstsignierte Zertifikate) nutzt, ist `ignoreTls=True` funktional nachvollziehbar. Allerdings wird dadurch auch eine Man-in-the-Middle-Attacke innerhalb des Docker-Netzwerks nicht erkannt. Ein besserer Ansatz wäre, die interne CA von Caddy in Uptime Kuma zu importieren.
-
-**Fix:**
-Die Caddy-interne CA (`/data/caddy/pki/authorities/local/root.crt`) als Trusted CA in Uptime Kuma konfigurieren, statt TLS-Validierung komplett zu deaktivieren. Dies erfordert:
-1. Das Caddy-CA-Zertifikat aus dem `caddy_data`-Volume extrahieren
-2. In Uptime Kuma als Custom CA setzen
-
-**Learn more:** [Stanford CS255 Lec 16](https://crypto.stanford.edu/~dabo/cs255/syllabus.html) — TLS
-
----
-
-### 🔵 Low / ⚪ Info (6)
-
----
-
-### [🔵 LOW] Keine Security-Hardening-Direktiven in Containern
-
-**Category:** Quality
-**Location:** [docker-compose.yml](docker-compose.yml) (global)
-**CWE:** CWE-269
-
-**What:** Keiner der Container nutzt `security_opt: [no-new-privileges:true]`, `read_only: true`, oder `cap_drop: [ALL]`.
-
-**Why it matters:** Diese Direktiven sind Defense-in-Depth-Maßnahmen: `no-new-privileges` verhindert Privilege Escalation via SUID-Binaries im Container, `read_only` verhindert, dass ein Angreifer Dateien im Container modifiziert, `cap_drop: ALL` entfernt alle Linux-Capabilities (nur die wirklich benötigten wieder hinzufügen).
-
-**Fix:**
+**Fix:** Add pipeline stages for PII redaction:
 ```yaml
-services:
-  caddy:
-    security_opt:
-      - no-new-privileges:true
-    cap_drop:
-      - ALL
-    cap_add:
-      - NET_BIND_SERVICE  # Für Port 443
-    read_only: true
-    tmpfs:
-      - /tmp
+pipeline_stages:
+  - json:
+      expressions:
+        level: level
+        event: event
+  - replace:
+      expression: '(\d{1,3}\.){3}\d{1,3}'
+      replace: '[IP_REDACTED]'
+  - replace:
+      expression: '[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}'
+      replace: '[EMAIL_REDACTED]'
 ```
 
-**Learn more:** [ISEC Cloud Operating Systems](https://www.isec.tugraz.at/course/cloud-operating-systems-705050-sommersemester-2026/)
+**Learn more:** GDPR Art. 25 (Data Protection by Design), Art. 32 (Security of Processing)
 
 ---
 
-### [🔵 LOW] Grafana Image nicht SHA-pinned
+### 🟡 Medium (7)
 
+---
+
+### [MEDIUM] M-01: Uptime Kuma Missing cap_drop and User Isolation
 **Category:** Security
-**Location:** [docker-compose.yml:87](docker-compose.yml#L87)
-**CWE:** CWE-1395 (Dependency on Vulnerable Third-Party Component)
+**Location:** [docker-compose.yml:199-226](docker-compose.yml#L199)
+**CWE:** CWE-250 (Execution with Unnecessary Privileges)
 
-**What:** `grafana/grafana:11.6.0` nutzt nur einen Version-Tag, keinen SHA256-Digest. Alle anderen Images (Loki, Promtail, Uptime Kuma) sind korrekt SHA-pinned.
+**What:** Uptime Kuma has `no-new-privileges` but is missing `cap_drop: ALL` and runs as root.
 
-**Why it matters:** Ein Tag kann nachträglich überschrieben werden (Tag-Squatting, kompromittiertes Registry). SHA256-Pinning stellt sicher, dass exakt das erwartete Image geladen wird.
+**Why it matters:** Running as root increases the impact of container escape vulnerabilities. Without `cap_drop: ALL`, the container retains default Linux capabilities (CAP_NET_RAW, CAP_CHOWN, CAP_SETUID).
 
 **Fix:**
 ```yaml
-grafana:
-  image: grafana/grafana:11.6.0@sha256:<aktueller-digest>
+uptime-kuma:
+  user: "1000:1000"
+  cap_drop:
+    - ALL
 ```
-Den Digest ermitteln: `docker pull grafana/grafana:11.6.0 && docker inspect --format='{{index .RepoDigests 0}}' grafana/grafana:11.6.0`
+
+**Learn more:** CIS Docker Benchmark 5.2, 5.3
 
 ---
 
-### [🔵 LOW] Caddy Image nicht SHA-pinned
-
+### [MEDIUM] M-02: Caddy Container Missing Resource Limits
 **Category:** Security
-**Location:** [docker-compose.yml:18](docker-compose.yml#L18)
-**CWE:** CWE-1395
+**Location:** [docker-compose.yml:19-43](docker-compose.yml#L19)
+**CWE:** CWE-770 (Allocation of Resources Without Limits)
 
-**What:** `caddy:2-alpine` nutzt einen Floating-Tag, keinen SHA256-Digest.
+**What:** Caddy has no `deploy.resources.limits` for memory or CPU, unlike all other services. As the internet-facing reverse proxy, it is the most likely DoS target.
 
 **Fix:**
 ```yaml
 caddy:
-  image: caddy:2-alpine@sha256:<aktueller-digest>
+  deploy:
+    resources:
+      limits:
+        memory: 256m
+        cpus: '0.50'
 ```
+
+**Learn more:** CIS Docker Benchmark 5.10, 5.11
 
 ---
 
-### [🔵 LOW] Claude Code Action nutzt unpinned Action-Version
-
+### [MEDIUM] M-03: CoreDNS Missing cap_drop and Resource Limits
 **Category:** Security
-**Location:** [.github/workflows/claude.yml:31-32](.github/workflows/claude.yml#L31-L32)
-**CWE:** CWE-1395 (Supply Chain)
+**Location:** [docker-compose.yml:5-17](docker-compose.yml#L5)
+**CWE:** CWE-250, CWE-770
 
-**What:** `actions/checkout@v6` und `anthropics/claude-code-action@v1` nutzen Floating-Tags statt SHA-Pins. Die CI-Workflow (`ci.yml`) pinnt korrekt via SHA.
-
-**Why it matters:** Floating-Tags bei GitHub Actions ermöglichen Supply-Chain-Attacken: Wird das Tag überschrieben, wird bei jedem Workflow-Run anderer Code ausgeführt. Die CI-Workflow macht es vorbildlich mit SHA-Pinning.
+**What:** CoreDNS has `no-new-privileges` but missing `cap_drop: ALL`, `cap_add: NET_BIND_SERVICE`, user directive, and resource limits. Processes untrusted DNS queries from the network.
 
 **Fix:**
 ```yaml
-- uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd  # v6.0.2
-- uses: anthropics/claude-code-action@<sha>  # v1.x.x
+coredns:
+  user: "1000:1000"
+  cap_drop:
+    - ALL
+  cap_add:
+    - NET_BIND_SERVICE
+  deploy:
+    resources:
+      limits:
+        memory: 64m
+        cpus: '0.10'
 ```
 
+**Learn more:** CIS Docker Benchmark 5.2, 5.3
+
 ---
 
-### [⚪ INFO] Tailscale MagicDNS-Hostname im Caddyfile
+### [MEDIUM] M-04: Missing Health Checks on 7 of 8 Services
+**Category:** Security / Quality
+**Location:** [docker-compose.yml](docker-compose.yml) (general)
+**CWE:** CWE-693 (Protection Mechanism Failure)
 
+**What:** Only Uptime Kuma has a `healthcheck`. All other services lack health checks, meaning Docker cannot detect when a service becomes unresponsive.
+
+**Fix:** Add health checks to all critical services:
+```yaml
+caddy:
+  healthcheck:
+    test: ["CMD", "wget", "--spider", "-q", "https://localhost:443"]
+    interval: 30s
+    timeout: 5s
+    retries: 3
+loki:
+  healthcheck:
+    test: ["CMD", "wget", "-qO-", "http://localhost:3100/ready"]
+    interval: 30s
+    timeout: 5s
+    retries: 3
+grafana:
+  healthcheck:
+    test: ["CMD", "wget", "-qO-", "http://localhost:3000/api/health"]
+    interval: 30s
+    timeout: 5s
+    retries: 3
+prometheus:
+  healthcheck:
+    test: ["CMD", "wget", "-qO-", "http://localhost:9090/-/healthy"]
+    interval: 30s
+    timeout: 5s
+    retries: 3
+```
+
+**Learn more:** Docker Compose healthcheck best practices
+
+---
+
+### [MEDIUM] M-05: Missing Content-Security-Policy (CSP) Header
 **Category:** Security
-**Location:** [Caddyfile:17](Caddyfile#L17)
-**CWE:** —
+**Location:** [Caddyfile.tmpl:5-13](Caddyfile.tmpl#L5)
+**CWE:** CWE-1021 (Improper Restriction of Rendered UI Layers)
 
-**What:** Das Caddyfile enthält `niles.tail1d4a0f.ts.net` — einen echten Tailscale MagicDNS-Hostnamen. Dieser ist versioniert.
+**What:** The Caddy security headers snippet includes HSTS, X-Content-Type-Options, X-Frame-Options, Referrer-Policy, and Permissions-Policy, but is missing Content-Security-Policy.
 
-**Why it matters:** Der MagicDNS-Hostname enthält die Tailnet-ID (`tail1d4a0f`). Dies ist ein Informationsleak, allerdings mit geringem direktem Risiko, da der Hostname nur innerhalb des Tailnets auflösbar ist. Das `check-pii.sh`-Script sollte dieses Pattern eigentlich erkennen — es wurde vermutlich vor Aktivierung des Hooks committed.
+**Fix:** Add to `(security_headers)` snippet:
+```
+header Content-Security-Policy "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; font-src 'self'; frame-ancestors 'none'"
+```
+Note: Grafana may need a more permissive CSP — test per vhost.
 
-**Fix:** Den MagicDNS-Hostnamen über eine Template-Variable (`${NILES_TAILSCALE_HOSTNAME}`) aus der `.env` beziehen und das Caddyfile ebenfalls als Template behandeln.
+**Learn more:** app-rules.md → CSP strategy, OWASP Top 10 A05
 
 ---
 
-### [⚪ INFO] `pip3 install` ohne Version-Pinning im Makefile
+### [MEDIUM] M-06: Prometheus and Node-Exporter Accessible Without Authentication
+**Category:** Security
+**Location:** [monitoring/prometheus.yml](monitoring/prometheus.yml), [docker-compose.yml:168-196](docker-compose.yml#L168)
+**CWE:** CWE-306 (Missing Authentication for Critical Function)
 
-**Category:** Quality
-**Location:** [Makefile:141](Makefile#L141)
-**CWE:** CWE-1395
+**What:** Prometheus and node-exporter expose metrics endpoints without authentication. Any container on the `monitoring` network can query them.
 
-**What:** `pip3 install -q uptime-kuma-api pyyaml` installiert ohne Version-Pinning und ohne Hash-Verifizierung.
+**Why it matters:** Prometheus metrics reveal service names, internal IPs, and resource usage patterns. Node-exporter with `pid: host` exposes detailed host process information.
 
-**Why it matters:** Bei jedem `make provision-uptime` wird die neueste Version aus PyPI installiert. Eine kompromittierte oder inkompatible Version würde sofort deployed. Dependency Confusion (ein gleichnamiges Paket auf einem internen Registry) ist bei PyPI ebenfalls ein bekannter Angriffsvektor.
+**Fix:** Enable Prometheus basic auth via web config:
+```yaml
+# monitoring/web.yml
+basic_auth_users:
+  admin: $2y$12$... # bcrypt hash
+```
+
+**Learn more:** Prometheus Security Model documentation
+
+---
+
+### [MEDIUM] M-07: Grafana Runs as UID 472 with GID 0 (root group)
+**Category:** Security
+**Location:** [docker-compose.yml:107](docker-compose.yml#L107)
+**CWE:** CWE-250
+
+**What:** Grafana runs as `user: "472:0"` where GID 0 is the root group. This is the Grafana upstream default but grants group-level access to root-owned files inside the container.
 
 **Fix:**
-```makefile
-provision-uptime:
-	@pip3 install -q -r requirements.txt
+```yaml
+grafana:
+  user: "472:472"
 ```
-Mit einer `requirements.txt`:
+Note: May need volume permission adjustment.
+
+**Learn more:** Principle of Least Privilege
+
+---
+
+### 🔵 Low (6)
+
+---
+
+### [LOW] L-01: TruffleHog Pre-commit Scans Only HEAD Commit
+**Category:** Security
+**Location:** [.pre-commit-config.yaml:9](.pre-commit-config.yaml#L9)
+**CWE:** CWE-312
+
+**What:** The TruffleHog pre-commit hook uses `--since-commit HEAD`, scanning only the latest commit diff. The CI pipeline compensates with full-history scanning.
+
+**Fix:** Consider adding gitleaks as a complementary pre-commit scanner that operates on staged content directly.
+
+---
+
+### [LOW] L-02: PII Check Script Does Not Detect Email Addresses
+**Category:** Compliance (GDPR)
+**Location:** [scripts/check-pii.sh:17-28](scripts/check-pii.sh#L17)
+**CWE:** CWE-359
+
+**What:** The script detects IP addresses and Tailscale hostnames but not email addresses (PII under GDPR).
+
+**Fix:** Add email pattern to PATTERNS array:
+```bash
+'[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}|Email address'
 ```
-uptime-kuma-api==1.2.1
-pyyaml==6.0.2
-```
+
+**Learn more:** GDPR Art. 4(1) — Definition of Personal Data
 
 ---
 
-## Compliance-Findings
+### [LOW] L-03: CI Pipeline Does Not Run PII Check
+**Category:** Compliance (GDPR)
+**Location:** [.github/workflows/ci.yml](.github/workflows/ci.yml)
+**CWE:** CWE-359
 
-### [⚪ COMPLIANCE] ISO 27001 A.8.15 — Logging-Integrität
+**What:** The PII check only runs as a pre-commit hook, which can be bypassed with `--no-verify`.
 
-**Regulation:** ISO 27001:2022 A.8.15
-**Finding:** Logs werden über Promtail/Loki gesammelt, aber es gibt keinen Mechanismus zur Log-Integrity-Verification. Logs können über die Loki-API (auth_enabled: false) von jedem Container im Monitoring-Netzwerk manipuliert werden.
-**Risk:** Bei einem Sicherheitsvorfall könnten manipulierte Logs die forensische Analyse unmöglich machen.
-**Remediation:** Loki-Auth aktivieren, Log-Retention-Policy dokumentieren, optional: Log-Forwarding an einen unveränderlichen externen Speicher (z.B. S3 mit Object Lock).
-**Evidence needed:** Dokumentierte Log-Retention-Policy, Nachweis dass Logs nicht nachträglich veränderbar sind.
+**Fix:** Add a CI job for PII scanning (requires adapting script for CI context — scanning diff against base branch).
 
-### [⚪ COMPLIANCE] ISO 27001 A.8.9 — Configuration Management / Default Credentials
-
-**Regulation:** ISO 27001:2022 A.8.9
-**Finding:** Grafana nutzt Default-Konfiguration mit anonymem Zugang. Uptime Kuma-Credentials werden in einer `.env`-Datei im Klartext gespeichert.
-**Risk:** Nicht dokumentierte Konfigurationsentscheidungen und fehlende Härtung widersprechen dem Configuration-Management-Control.
-**Remediation:** Grafana-Auth aktivieren, Secrets-Management implementieren, Konfigurationsentscheidungen in einem ADR (Architecture Decision Record) dokumentieren.
-**Evidence needed:** Dokumentiertes Security-Baseline-Dokument, Nachweis dass Default-Credentials geändert wurden.
-
-### [⚪ COMPLIANCE] GDPR Art. 32 — Angemessene technische Maßnahmen
-
-**Regulation:** DSGVO Art. 32
-**Finding:** Falls personenbezogene Daten über die geproxten Services verarbeitet werden (z.B. WhatsApp-Nachrichten über Evolution API, Gesundheitsdaten über PulseBase/Garmin), fehlen angemessene Zugriffskontrollen auf Application-Layer-Ebene. Tailscale allein als Trust-Boundary reicht nicht aus, wenn ein einzelnes kompromittiertes Gerät Zugang zu allen Services gibt.
-**Risk:** Bei Kompromittierung eines Tailnet-Geräts: Zugriff auf alle Services und potenzielle personenbezogene Daten ohne weitere Authentifizierung.
-**Remediation:** Application-Layer-Auth für Services die personenbezogene Daten verarbeiten. Tailscale ACLs nutzen, um den Zugriff auf bestimmte Geräte zu beschränken.
-**Evidence needed:** Tailscale ACL-Konfiguration, Dokumentation der Datenschutzmaßnahmen pro Service.
+**Learn more:** GDPR Art. 32 — Security of Processing
 
 ---
 
-## Statistik
+### [LOW] L-04: Promtail Image Version (3.0.0) Significantly Behind Loki (3.7.2)
+**Category:** Security (Supply Chain)
+**Location:** [docker-compose.yml:76](docker-compose.yml#L76)
+**CWE:** CWE-1104
 
-| Severity     | Security | Quality | Compliance |
-| ------------ | -------- | ------- | ---------- |
-| 🔴 Critical  | 0        | 0       | 0          |
-| 🟠 High      | 3        | 0       | 0          |
-| 🟡 Medium    | 4        | 1       | 0          |
-| 🔵 Low       | 3        | 1       | 0          |
-| ⚪ Info       | 1        | 1       | 3          |
+**What:** ~7 minor version gap. May contain known CVEs patched in newer releases.
 
-**Gesamt: 17 Findings** (3 High, 5 Medium, 4 Low, 5 Info/Compliance)
+**Fix:** Update to `grafana/promtail:3.7.2@sha256:<current-digest>`.
 
 ---
 
-## Top 3 Sofortmaßnahmen
+### [LOW] L-05: Renovate and Dependabot Both Configured
+**Category:** Quality
+**Location:** [renovate.json](renovate.json), [.github/dependabot.yml](.github/dependabot.yml)
 
-1. **Reale Tailscale-IP aus `.env.example` entfernen** und durch Platzhalter ersetzen. Falls das Repository öffentlich ist/war: IP aus Git-History entfernen.
+**What:** Both tools are active, creating duplicate PRs for GitHub Actions updates.
 
-2. **Grafana-Authentifizierung aktivieren** (`GF_AUTH_ANONYMOUS_ENABLED=false`). Alternativ: Tailscale Serve/Funnel mit Authentication oder einen Auth-Proxy (z.B. Caddy mit `basicauth` oder Tailscale Auth Header) verwenden.
-
-3. **Docker-Container härten**: Mindestens `security_opt: [no-new-privileges:true]` und `cap_drop: [ALL]` für alle Container hinzufügen. Wo möglich `user:` setzen und `read_only: true` aktivieren.
-
----
-
-## Positiv-Highlights
-
-Das Projekt implementiert bereits mehrere Security-Best-Practices:
-
-- **Image-SHA-Pinning** für Loki, Promtail und Uptime Kuma
-- **TruffleHog** als Pre-Commit-Hook und in CI
-- **Custom PII-Detection** (`check-pii.sh`) mit Allowlist
-- **Security Headers** im Caddyfile (HSTS, X-Content-Type-Options, X-Frame-Options, Permissions-Policy)
-- **Resource Limits** auf allen Containern (CPU + Memory)
-- **Log-Rotation** mit JSON-Driver und Size-Caps
-- **Localhost-Binding** für interne Services (Loki auf 127.0.0.1, Uptime Kuma auf 127.0.0.1)
-- **Read-Only Mounts** für Konfigurationsdateien (`:ro`)
-- **CI-Pipeline** mit Lint, Hadolint, Secret-Scan, und Caddyfile-Validation
-- **GitHub Actions SHA-Pinning** in der CI-Workflow
+**Fix:** Remove `dependabot.yml` — Renovate's `config:recommended` already covers GitHub Actions.
 
 ---
 
-*Erstellt mit KI-Unterstützung (Claude Code + dev-best-practices Plugin).
-Findings sind zu verifizieren — kein Ersatz für manuelle Penetrationstests.*
+### [LOW] L-06: No `read_only: true` Set on Any Container
+**Category:** Security
+**Location:** [docker-compose.yml](docker-compose.yml) (general)
+**CWE:** CWE-732
+
+**What:** No containers use `read_only: true`, allowing writable root filesystems.
+
+**Fix:** Add `read_only: true` with appropriate `tmpfs` mounts for `/tmp` on services that don't need writable root FS (caddy, coredns, node-exporter, prometheus, promtail).
+
+---
+
+### ⚪ Info (6)
+
+---
+
+### [INFO] I-01: All Images Properly Digest-Pinned
+**Category:** Security (Supply Chain)
+All 8 Docker images use `@sha256:` digest pinning. Excellent supply chain protection.
+
+### [INFO] I-02: CI Actions Properly Commit-Pinned
+**Category:** Security (Supply Chain)
+All GitHub Actions use full commit SHA pinning with version comments.
+
+### [INFO] I-03: Good Network Segmentation
+**Category:** Security
+`proxy` and `monitoring` networks are properly separated. Grafana correctly bridges both.
+
+### [INFO] I-04: Loki Retention (7 days) Reasonable for GDPR
+**Category:** Compliance (GDPR)
+168h retention with compaction and deletion. Compliant with data minimization (Art. 5(1)(e)).
+
+### [INFO] I-05: .env Never Committed to Git History
+**Category:** Security
+Properly gitignored since repo creation. Pre-commit hooks provide additional protection.
+
+### [INFO] I-06: EU AI Act — Not Directly Applicable
+**Category:** Compliance
+The gateway proxies to `niles_core:8000` (AI service), but the Act obligations apply to the Niles project itself, not the reverse proxy infrastructure.
+
+---
+
+## Statistics
+
+| Severity | Security | Quality | Compliance | Total |
+|----------|:---:|:---:|:---:|:---:|
+| 🔴 Critical | 2 | 0 | 0 | **2** |
+| 🟠 High | 3 | 0 | 1 | **4** |
+| 🟡 Medium | 6 | 1 | 0 | **7** |
+| 🔵 Low | 2 | 1 | 2 | **5** (+1 supply chain) |
+| ⚪ Info | 3 | 0 | 3 | **6** |
+| **Total** | **16** | **2** | **6** | **24** |
+
+---
+
+## ISO 27001 Mapping
+
+| Control | Status | Finding |
+|---------|:---:|---|
+| A.8.9 Configuration management | 🟡 | Caddyfile.tmpl not properly templated; hardcoded values |
+| A.8.15 Logging | 🟡 | Good pipeline but PII scrubbing missing; alerting absent |
+| A.8.24 Use of cryptography | 🟢 | TLS via Caddy, digest-pinned images, Tailscale WireGuard |
+| A.8.25 Secure development lifecycle | 🟡 | Pre-commit + CI scanning present; missing Trivy, Semgrep, branch protection |
+| A.8.28 Secure coding | 🟡 | Shell scripts adequate; Makefile secret leakage issue |
+
+---
+
+## Top 3 Immediate Actions
+
+1. **Mitigate Docker socket exposure (C-01):** Replace Promtail's Docker socket mount with a socket proxy or switch to file-based log scraping. This is the single highest-risk finding — enables full host compromise from within a container.
+
+2. **Add `bind ${TAILSCALE_IP}` to Linux CoreDNS template (H-01):** One-line fix in `dns/Corefile.tmpl` that prevents DNS from being exposed on all host interfaces.
+
+3. **Harden remaining containers (M-01, M-02, M-03):** Add `cap_drop: ALL` + user isolation to CoreDNS and Uptime Kuma, add resource limits to Caddy — brings all services to the same hardening level already applied to Loki/Prometheus/Grafana.
+
+---
+
+*Generated with AI assistance (Claude Code + dev-best-practices plugin).
+Findings should be verified — not a substitute for manual penetration testing.*
