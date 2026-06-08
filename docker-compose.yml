@@ -175,7 +175,7 @@ services:
         max-file: "2"
 
   grafana:
-    image: grafana/grafana:11.6.15@sha256:f739273dfed04760428fcfbfccd1752b3b7fc87ef0a3d5637e2e87cce151e1a2
+    image: grafana/grafana:13.0.2@sha256:5dad0df181cb644a14e13617b913b261a54f7d4fd4510721dba420929f35bea2
     container_name: gateway-grafana
     restart: unless-stopped
     user: "472:0"
