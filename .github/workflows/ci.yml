@@ -41,6 +41,7 @@ jobs:
       - name: Validate docker-compose.yml
         run: |
           TAILSCALE_IP=100.0.0.1 \
+          DOMAIN=home.lab \
           GF_ADMIN_USER=admin \
           GF_ADMIN_PASSWORD=placeholder \
           docker compose config --quiet
@@ -63,7 +64,7 @@ jobs:
       - uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10  # v6.0.3
 
       - name: Generate Caddyfile from template
-        run: cp Caddyfile.tmpl Caddyfile
+        run: DOMAIN=home.lab envsubst '$DOMAIN' < Caddyfile.tmpl > Caddyfile
 
       - name: Validate Caddyfile syntax
         run: |
@@ -71,3 +72,61 @@ jobs:
             -v "$PWD/Caddyfile:/etc/caddy/Caddyfile:ro" \
             caddy:2-alpine \
             caddy validate --config /etc/caddy/Caddyfile
+
+  trivy:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10  # v6.0.3
+
+      - name: Install Trivy
+        run: |
+          sudo apt-get install -y wget apt-transport-https gnupg
+          wget -qO - \
+            https://aquasecurity.github.io/trivy-repo/deb/public.key \
+            | gpg --dearmor \
+            | sudo tee /usr/share/keyrings/trivy.gpg > /dev/null
+          echo "deb [signed-by=/usr/share/keyrings/trivy.gpg] \
+            https://aquasecurity.github.io/trivy-repo/deb \
+            generic main" \
+            | sudo tee /etc/apt/sources.list.d/trivy.list
+          sudo apt-get update && sudo apt-get install -y trivy
+
+      - name: Scan container images
+        run: |
+          FAILED=0
+          grep 'image:' docker-compose.yml \
+            | awk '{print $2}' | sort -u \
+            | while read -r img; do
+            echo "::group::Scanning: $img"
+            trivy image \
+              --severity CRITICAL \
+              --ignore-unfixed \
+              --scanners vuln \
+              --exit-code 0 \
+              "$img" || true
+            echo "::endgroup::"
+          done
+          echo "Trivy scan complete (informational)"
+
+  semgrep:
+    runs-on: ubuntu-latest
+    container:
+      image: semgrep/semgrep
+    steps:
+      - uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10  # v6.0.3
+
+      - name: Run Semgrep
+        run: semgrep scan --config auto --error --severity ERROR
+
+  checkov:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10  # v6.0.3
+
+      - name: Run Checkov
+        uses: bridgecrewio/checkov-action@dfb51aed1b783289b0d3f255028e7a88d5e8caa1  # v12
+        with:
+          directory: .
+          quiet: true
+          soft_fail: false
+          skip_check: CKV2_GHA_1
