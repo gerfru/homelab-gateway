@@ -125,7 +125,7 @@
       "datasource": { "type": "loki", "uid": "" },
       "targets": [
         {
-          "expr": "sum(count_over_time({project=~\"$project\"} |~ \"(?i)error|exception|critical\" [5m]))",
+          "expr": "sum(count_over_time({project=~\"$project\"} |~ \"(?i)error|exception|traceback|critical\" [5m]))",
           "refId": "A"
         }
       ],
@@ -183,7 +183,7 @@
       "datasource": { "type": "loki", "uid": "" },
       "targets": [
         {
-          "expr": "topk(10, sum by (container) (count_over_time({project=~\"$project\"} |~ \"(?i)error|exception|critical\" [1h])))",
+          "expr": "topk(10, sum by (container) (count_over_time({project=~\"$project\"} |~ \"(?i)error|exception|traceback|critical\" [1h])))",
           "legendFormat": "{{ container }}",
           "refId": "A",
           "instant": true
