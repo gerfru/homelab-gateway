@@ -73,7 +73,23 @@ logs.${DOMAIN} {
 	reverse_proxy gateway-grafana:3000
 }
 
-# Prometheus metrics (internal only)
+# Prometheus (Metrics UI)
+prometheus.${DOMAIN} {
+	tls internal
+	import security_headers
+	import common_log
+	reverse_proxy prometheus:9090
+}
+
+# Caddy Metrics
+metrics.${DOMAIN} {
+	tls internal
+	import security_headers
+	import common_log
+	reverse_proxy localhost:9180
+}
+
+# Prometheus scrape endpoint (internal only)
 :9180 {
 	metrics /metrics
 }
