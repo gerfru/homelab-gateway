@@ -20,6 +20,7 @@ jobs:
         run: syft dir:. -o cyclonedx-json=sbom.cdx.json
 
       - name: Upload SBOM as release asset
-        run: gh release upload "${{ github.ref_name }}" sbom.cdx.json
+        run: gh release upload "$TAG_NAME" sbom.cdx.json
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          TAG_NAME: ${{ github.ref_name }}
