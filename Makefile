@@ -18,7 +18,7 @@ else
 	@envsubst '$$DOMAIN $$TAILSCALE_IP' < dns/Corefile.tmpl > dns/Corefile
 endif
 	@envsubst '$$DOMAIN $$TAILSCALE_IP' < dns/home.lab.zone.tmpl > dns/home.lab.zone
-	@cp Caddyfile.tmpl Caddyfile
+	@envsubst '$$DOMAIN' < Caddyfile.tmpl > Caddyfile
 	@echo "Done. Generated:"
 	@echo "  dns/Corefile"
 	@echo "  dns/home.lab.zone"
