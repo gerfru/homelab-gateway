@@ -55,7 +55,7 @@ services:
     labels:
       - "monitoring=true"
     healthcheck:
-      test: ["CMD-SHELL", "wget -qO- http://localhost:2019/config/ || exit 1"]
+      test: ["CMD-SHELL", "wget -qO- http://127.0.0.1:2019/config/ || exit 1"]
       interval: 30s
       timeout: 5s
       retries: 3
@@ -93,12 +93,8 @@ services:
     command: -config.file=/etc/loki/local-config.yml
     networks:
       - monitoring
-    healthcheck:
-      test: ["CMD-SHELL", "wget --no-verbose --tries=1 --spider http://localhost:3100/ready || exit 1"]
-      interval: 30s
-      timeout: 5s
-      retries: 3
-      start_period: 15s
+    # Loki 3.7.2 is distroless (no shell, no wget) — health check not possible via exec.
+    # Rely on depends_on + start_period for downstream services instead.
     deploy:
       resources:
         limits:
@@ -119,8 +115,10 @@ services:
     read_only: true
     tmpfs:
       - /run
+      - /tmp
     environment:
       CONTAINERS: 1
+      NETWORKS: 1
       POST: 0
     volumes:
       - /var/run/docker.sock:/var/run/docker.sock:ro
@@ -161,15 +159,10 @@ services:
       socket-proxy:
         condition: service_healthy
       loki:
-        condition: service_healthy
+        condition: service_started
     networks:
       - monitoring
-    healthcheck:
-      test: ["CMD-SHELL", "wget --no-verbose --tries=1 --spider http://localhost:9080/ready || exit 1"]
-      interval: 30s
-      timeout: 5s
-      retries: 3
-      start_period: 10s
+    # Promtail 3.0.0 is distroless (no shell, no wget) — health check not possible via exec.
     deploy:
       resources:
         limits:
@@ -201,7 +194,7 @@ services:
       - ./monitoring/grafana/provisioning:/etc/grafana/provisioning:ro
     depends_on:
       loki:
-        condition: service_healthy
+        condition: service_started
     networks:
       - proxy
       - monitoring
@@ -239,7 +232,7 @@ services:
     volumes:
       - /proc:/host/proc:ro
       - /sys:/host/sys:ro
-      - /:/rootfs:ro,rslave
+      - /:/rootfs:ro
     command:
       - "--path.procfs=/host/proc"
       - "--path.sysfs=/host/sys"
@@ -312,6 +305,9 @@ services:
       - no-new-privileges:true
     cap_drop:
       - ALL
+    cap_add:
+      - SETGID
+      - SETUID
     volumes:
       - uptime-kuma-data:/app/data
     networks:
@@ -320,7 +316,7 @@ services:
     labels:
       - "monitoring=true"
     healthcheck:
-      test: ["CMD", "wget", "-qO-", "http://localhost:3001"]
+      test: ["CMD", "/app/extra/healthcheck"]
       interval: 30s
       timeout: 5s
       retries: 3
