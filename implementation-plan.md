@@ -8,21 +8,21 @@ Dedupliziert: **91 Roh-Findings → 67 unique Tasks** (24 Duplikate eliminiert)
 
 ## Uebersicht
 
-| Wave | Thema | Tasks | Aufwand | Ziel |
-|:----:|-------|:-----:|:-------:|------|
-| 1 | CI Security Gates + Secrets | 7 | S-M | Supply-Chain blockiert, Credentials geschuetzt |
-| 2 | Onboarding & Quick Wins | 8 | S | Erster `git clone` funktioniert reibungslos |
-| 3 | Alerting & Observability | 8 | S-M | Funktionierende Alert-Pipeline, keine toten Regeln |
-| 4 | Security Hardening | 10 | S-M | Container gehaertet, Injection gefixt, CSP differenziert |
-| 5 | Tests & CI | 10 | S-M | Vollstaendige Test-Abdeckung, CI-Luecken geschlossen |
-| 6 | Dokumentation & Operator Polish | 9 | S-M | README, Makefile-Feedback, Upgrade/Backup |
-| 7 | Langfristig / Kommerziell | 15 | M-L | Weiterverkauf-Readiness |
+| Wave | Thema | Tasks | Aufwand | Status | Ziel |
+|:----:|-------|:-----:|:-------:|:------:|------|
+| 1 | CI Security Gates + Secrets | 7 | S-M | ✅ PR #51 | Supply-Chain blockiert, Credentials geschuetzt |
+| 2 | Onboarding & Quick Wins | 8 | S | ✅ PR #51 | Erster `git clone` funktioniert reibungslos |
+| 3 | Alerting & Observability | 8 | S-M | ✅ PR #53 | Funktionierende Alert-Pipeline, keine toten Regeln |
+| 4 | Security Hardening | 10 | S-M | ✅ PR #54 | Container gehaertet, Injection gefixt, CSP differenziert |
+| 5 | Tests & CI | 10 | S-M | ✅ PR #55 | Vollstaendige Test-Abdeckung, CI-Luecken geschlossen |
+| 6 | Dokumentation & Operator Polish | 9 | S-M | ✅ PR #57 | README, Makefile-Feedback, Upgrade/Backup |
+| 7 | Langfristig / Kommerziell | 15 | M-L | — | Weiterverkauf-Readiness |
 
 **Aufwand:** S = < 30 Min, M = 30-120 Min, L = > 2h
 
 ---
 
-## Wave 1 — CI Security Gates + Secrets
+## Wave 1 — CI Security Gates + Secrets ✅ (PR #51)
 
 **Ziel:** Keine verwundbaren Images mehr in Production. Credentials nicht ueber Docker API lesbar.
 
@@ -41,7 +41,7 @@ Dedupliziert: **91 Roh-Findings → 67 unique Tasks** (24 Duplikate eliminiert)
 
 ---
 
-## Wave 2 — Onboarding & Quick Wins
+## Wave 2 — Onboarding & Quick Wins ✅ (PR #51)
 
 **Ziel:** `git clone` → `make help` → `make up` funktioniert ohne Stolpersteine.
 
@@ -61,7 +61,7 @@ Dedupliziert: **91 Roh-Findings → 67 unique Tasks** (24 Duplikate eliminiert)
 
 ---
 
-## Wave 3 — Alerting & Observability
+## Wave 3 — Alerting & Observability ✅ (PR #53)
 
 **Ziel:** Alerts erreichen den Operator. Keine toten Regeln, keine Duplikate.
 
@@ -81,7 +81,7 @@ Dedupliziert: **91 Roh-Findings → 67 unique Tasks** (24 Duplikate eliminiert)
 
 ---
 
-## Wave 4 — Security Hardening
+## Wave 4 — Security Hardening ✅ (PR #54)
 
 **Ziel:** Container-Haertung konsistent, Injection gefixt, CSP differenziert.
 
@@ -124,7 +124,7 @@ Dedupliziert: **91 Roh-Findings → 67 unique Tasks** (24 Duplikate eliminiert)
 
 ---
 
-## Wave 6 — Dokumentation & Operator Polish
+## Wave 6 — Dokumentation & Operator Polish ✅ (PR #57)
 
 **Ziel:** Klare Kommunikation, gutes Feedback, Upgrade- und Backup-Pfad.
 
