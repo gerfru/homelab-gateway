@@ -49,6 +49,7 @@ repos:
         entry: >-
           bash -c 'TAILSCALE_IP=100.0.0.1 DOMAIN=home.lab GF_ADMIN_USER=admin
           GF_ADMIN_PASSWORD=test ALERTING_WEBHOOK_URL=http://localhost:9999
+          CADDY_AUTH_USER=admin CADDY_AUTH_PASS_HASH=dummy
           docker compose config --quiet'
         language: system
         files: 'docker-compose\.yml$'

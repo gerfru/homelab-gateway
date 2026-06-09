@@ -49,6 +49,7 @@ assert_prom_target caddy
 assert_prom_target loki
 assert_prom_target grafana
 assert_prom_target promtail
+assert_prom_target tempo
 
 echo ""
 echo "Results: $PASS passed, $FAIL failed"
