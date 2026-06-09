@@ -1,4 +1,4 @@
-.PHONY: help generate up down status logs test-dns clean dns-up dns-down dns-status dns-logs logs-caddy logs-dns check-env test test-generate test-pii test-smoke test-update-golden backup restore
+.PHONY: help generate up down status logs test-dns clean dns-up dns-down dns-status dns-logs logs-caddy logs-dns check-env dry-run test test-generate test-pii test-smoke test-update-golden backup restore
 
 -include .env
 export DOMAIN TAILSCALE_IP
@@ -70,6 +70,21 @@ check-env: ## Verify .env configuration
 		echo "WARNING: ALERTING_WEBHOOK_URL not configured — Grafana alerts will not be delivered."; \
 	fi
 
+dry-run: check-env generate ## Preview what 'make up' would do (no deployment)
+	@echo "Dry-run: validating configuration..."
+	@docker compose --env-file .env config --quiet && \
+		echo "  Docker Compose config: valid" || \
+		{ echo "  Docker Compose config: INVALID"; exit 1; }
+	@echo "  Generated files:"
+	@echo "    dns/Corefile"
+	@echo "    dns/home.lab.zone"
+	@echo "    Caddyfile"
+	@echo ""
+	@echo "Services that would start:"
+	@docker compose --env-file .env config --services | sed 's/^/    /'
+	@echo ""
+	@echo "Ready to deploy. Run: make up"
+
 up: check-env generate dns-up ## Start the full gateway stack
 	@echo "Starting gateway..."
 ifeq ($(UNAME),Darwin)
@@ -108,6 +123,7 @@ down: dns-down ## Stop all services
 
 # --- CoreDNS (OS-aware) ---
 
+# PID in /tmp (not /var/run) — macOS doesn't use systemd, and /var/run requires root ownership setup
 dns-up: ## Start CoreDNS (native on macOS, Docker on Linux)
 ifeq ($(UNAME),Darwin)
 	@echo "Starting CoreDNS natively (macOS)..."
@@ -124,6 +140,7 @@ ifeq ($(UNAME),Darwin)
 		sudo pkill -HUP coredns || true; \
 	else \
 		echo "Starting CoreDNS (port 53 requires sudo)..."; \
+		[ -f /tmp/coredns.log ] && tail -1000 /tmp/coredns.log > /tmp/coredns.log.tmp && mv /tmp/coredns.log.tmp /tmp/coredns.log 2>/dev/null || true; \
 		sudo sh -c 'nohup coredns -conf $(REPO_DIR)/dns/Corefile > /tmp/coredns.log 2>&1 & echo $$! > /tmp/coredns.pid'; \
 		sleep 1; \
 		if pgrep -x coredns >/dev/null 2>&1; then \

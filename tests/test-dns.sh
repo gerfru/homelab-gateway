@@ -1,4 +1,5 @@
 #!/usr/bin/env bash
+# shellcheck source-path=SCRIPTDIR
 # test-dns.sh — DNS resolution tests with assertions
 # Requires a running CoreDNS instance (make dns-up).
 set -euo pipefail
@@ -16,19 +17,18 @@ fi
 echo "CoreDNS reachable."
 echo ""
 
-PASS=0
-FAIL=0
+SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
+# shellcheck disable=SC1091
+source "$SCRIPT_DIR/lib.sh"
 
 assert_dns() {
   local host="$1" expected="$2"
   local result
   result=$(dig +short "@${TAILSCALE_IP}" "$host" 2>/dev/null || true)
   if [[ "$result" == "$expected" ]]; then
-    echo "  PASS: $host -> $result"
-    PASS=$((PASS + 1))
+    pass "$host -> $result"
   else
-    echo "  FAIL: $host -> got '$result', expected '$expected'"
-    FAIL=$((FAIL + 1))
+    fail "$host -> got '$result', expected '$expected'"
   fi
 }
 
@@ -44,6 +44,4 @@ assert_dns "prometheus.${DOMAIN}" "${TAILSCALE_IP}"
 assert_dns "metrics.${DOMAIN}" "${TAILSCALE_IP}"
 assert_dns "random-wildcard.${DOMAIN}" "${TAILSCALE_IP}"
 
-echo ""
-echo "Results: $PASS passed, $FAIL failed"
-[[ $FAIL -eq 0 ]]
+results
