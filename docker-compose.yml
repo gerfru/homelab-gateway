@@ -46,6 +46,9 @@ services:
       - /tmp
     ports:
       - "${TAILSCALE_IP}:443:443"
+    environment:
+      - CADDY_AUTH_USER=${CADDY_AUTH_USER:-}
+      - CADDY_AUTH_PASS_HASH=${CADDY_AUTH_PASS_HASH:-}
     volumes:
       - ./Caddyfile:/etc/caddy/Caddyfile:ro
       - caddy_data:/data
@@ -55,6 +58,7 @@ services:
       - monitoring
     labels:
       - "monitoring=true"
+      - "com.centurylinklabs.watchtower.enable=true"
     healthcheck:
       test: ["CMD-SHELL", "wget -qO- http://127.0.0.1:2019/config/ || exit 1"]
       interval: 30s
@@ -94,6 +98,8 @@ services:
     command: -config.file=/etc/loki/local-config.yml
     networks:
       - monitoring
+    labels:
+      - "com.centurylinklabs.watchtower.enable=true"
     # Loki 3.7.2 is distroless (no shell, no wget) — health check not possible via exec.
     # Rely on depends_on + start_period for downstream services instead.
     deploy:
@@ -163,6 +169,8 @@ services:
         condition: service_started
     networks:
       - monitoring
+    labels:
+      - "com.centurylinklabs.watchtower.enable=true"
     # Promtail 3.0.0 is distroless (no shell, no wget) — health check not possible via exec.
     deploy:
       resources:
@@ -202,6 +210,7 @@ services:
       - monitoring
     labels:
       - "monitoring=true"
+      - "com.centurylinklabs.watchtower.enable=true"
     healthcheck:
       test: ["CMD-SHELL", "wget -qO- http://localhost:3000/api/health || exit 1"]
       interval: 30s
@@ -243,6 +252,8 @@ services:
       - "--collector.filesystem.fs-types-exclude=^(fakeowner|virtiofs.*|fuse\\..+|selfowner|tmpfs|autofs|binfmt_misc|cgroup2?|configfs|debugfs|devpts|devtmpfs|erofs|hugetlbfs|mqueue|nsfs|overlay|proc|procfs|pstore|rpc_pipefs|securityfs|selinuxfs|squashfs|sysfs|tracefs)$$"
     networks:
       - monitoring
+    labels:
+      - "com.centurylinklabs.watchtower.enable=true"
     healthcheck:
       test: ["CMD-SHELL", "wget -qO- http://localhost:9100/ || exit 1"]
       interval: 30s
@@ -253,6 +264,37 @@ services:
         limits:
           memory: 64m
           cpus: '0.10'
+    logging:
+      driver: json-file
+      options:
+        max-size: "5m"
+        max-file: "2"
+
+  tempo:
+    image: grafana/tempo:2.7.2
+    container_name: gateway-tempo
+    restart: unless-stopped
+    read_only: true
+    user: "10001:10001"
+    security_opt:
+      - no-new-privileges:true
+    cap_drop:
+      - ALL
+    volumes:
+      - ./monitoring/tempo-config.yml:/etc/tempo/config.yml:ro
+      - tempo-data:/var/tempo
+    tmpfs:
+      - /tmp
+    command: ["-config.file=/etc/tempo/config.yml"]
+    networks:
+      - monitoring
+    labels:
+      - "com.centurylinklabs.watchtower.enable=true"
+    deploy:
+      resources:
+        limits:
+          memory: 256m
+          cpus: '0.25'
     logging:
       driver: json-file
       options:
@@ -286,6 +328,7 @@ services:
       - monitoring
     labels:
       - "monitoring=true"
+      - "com.centurylinklabs.watchtower.enable=true"
     healthcheck:
       test: ["CMD-SHELL", "wget -qO- http://localhost:9090/-/healthy || exit 1"]
       interval: 30s
@@ -321,6 +364,7 @@ services:
       - monitoring
     labels:
       - "monitoring=true"
+      - "com.centurylinklabs.watchtower.enable=true"
     healthcheck:
       test: ["CMD", "/app/extra/healthcheck"]
       interval: 30s
@@ -337,6 +381,38 @@ services:
         max-size: "5m"
         max-file: "2"
 
+  # --- Deployment (auto-update with label opt-in) ---
+
+  watchtower:
+    image: containrrr/watchtower:1.7.1
+    container_name: gateway-watchtower
+    restart: unless-stopped
+    read_only: true
+    security_opt:
+      - no-new-privileges:true
+    cap_drop:
+      - ALL
+    environment:
+      - WATCHTOWER_LABEL_ENABLE=true
+      - WATCHTOWER_SCHEDULE=0 0 4 * * *
+      - WATCHTOWER_CLEANUP=true
+      - WATCHTOWER_INCLUDE_STOPPED=false
+      - WATCHTOWER_NO_STARTUP_MESSAGE=true
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+    networks:
+      - monitoring
+    deploy:
+      resources:
+        limits:
+          memory: 64m
+          cpus: '0.05'
+    logging:
+      driver: json-file
+      options:
+        max-size: "5m"
+        max-file: "2"
+
 volumes:
   caddy_data:
   caddy_config:
@@ -344,6 +420,7 @@ volumes:
   grafana-data:
   prometheus-data:
   uptime-kuma-data:
+  tempo-data:
 
 networks:
   proxy:
