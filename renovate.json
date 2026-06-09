@@ -1,5 +1,6 @@
 {
   "$schema": "https://docs.renovatebot.com/renovate-schema.json",
+  "description": "Digest/patch automerge ohne Schedule (CI validiert, Homelab toleriert Restarts). Minor/major erfordern manuellen Review.",
   "extends": ["config:recommended"],
   "pinDigests": true,
   "platformAutomerge": true,

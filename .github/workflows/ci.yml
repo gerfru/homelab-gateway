@@ -24,7 +24,7 @@ jobs:
       - name: ShellCheck
         uses: ludeeus/action-shellcheck@00cae500b08a931fb5698e11e79bfbd38e612a38  # v2
         with:
-          scandir: scripts
+          scandir: .
 
       - name: Hadolint (Dockerfile best practices)
         uses: hadolint/hadolint-action@2332a7b74a6de0dda2e2221d575162eba76ba5e5  # v3
@@ -51,6 +51,8 @@ jobs:
           ALERTING_WEBHOOK_URL=http://localhost:9999 \
           docker compose config --quiet
 
+  # GitHub-native secret scanning is unavailable on free-tier private repos.
+  # TruffleHog provides equivalent detection with verified/unverified filtering.
   secret-scan:
     runs-on: ubuntu-latest
     steps:
@@ -148,6 +150,8 @@ jobs:
           directory: .
           quiet: true
           soft_fail: false
+          # CKV2_GHA_1: False positive — workflow permissions are explicitly
+          # restricted to "contents: read" (line 9-10), not "write-all".
           skip_check: CKV2_GHA_1
 
   test-generate:
@@ -157,3 +161,6 @@ jobs:
 
       - name: Run template generation tests
         run: bash tests/test-generate.sh
+
+      - name: Run PII regex tests
+        run: bash tests/test-pii-regex.sh

@@ -1,7 +1,10 @@
 #!/usr/bin/env bash
-# test-smoke.sh — Stack smoke test (health checks + Prometheus targets)
+# test-smoke.sh — Stack smoke test (health checks + Prometheus targets + security headers)
 # Requires a running stack (make up).
 set -euo pipefail
+
+: "${DOMAIN:?DOMAIN not set — run via 'make test-smoke' or export DOMAIN}"
+: "${TAILSCALE_IP:?TAILSCALE_IP not set — run via 'make test-smoke' or export TAILSCALE_IP}"
 
 PASS=0
 FAIL=0
@@ -51,6 +54,34 @@ assert_prom_target loki
 assert_prom_target grafana
 assert_prom_target promtail
 assert_prom_target tempo
+
+assert_header() {
+  local subdomain="$1" header="$2" expected="$3"
+  local value
+  value=$(curl -sk -o /dev/null -D - \
+    -H "Host: ${subdomain}.${DOMAIN}" \
+    "https://${TAILSCALE_IP}/" \
+    | grep -i "^${header}:" | head -1 \
+    | sed 's/^[^:]*: *//' | tr -d '\r' || true)
+  if [[ -n "$value" && "$value" == *"$expected"* ]]; then
+    echo "  PASS: ${subdomain} — ${header}"
+    PASS=$((PASS + 1))
+  else
+    echo "  FAIL: ${subdomain} — ${header}: got '${value}', expected '${expected}'"
+    FAIL=$((FAIL + 1))
+  fi
+}
+
+echo ""
+echo "=== Security Headers ==="
+# Strict CSP subdomain
+assert_header "niles" "Strict-Transport-Security" "max-age=31536000"
+assert_header "niles" "X-Frame-Options" "DENY"
+assert_header "niles" "X-Content-Type-Options" "nosniff"
+assert_header "niles" "Content-Security-Policy" "default-src 'self'"
+# Relaxed CSP subdomain
+assert_header "status" "Strict-Transport-Security" "max-age=31536000"
+assert_header "status" "Content-Security-Policy" "unsafe-inline"
 
 echo ""
 echo "Results: $PASS passed, $FAIL failed"
