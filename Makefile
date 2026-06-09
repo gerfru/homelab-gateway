@@ -1,7 +1,7 @@
-.PHONY: generate up down status logs test-dns clean dns-up dns-down dns-status dns-logs
+.PHONY: generate up down status logs test-dns clean dns-up dns-down dns-status dns-logs logs-caddy logs-dns check-env
 
 include .env
-export
+export DOMAIN TAILSCALE_IP
 
 UNAME := $(shell uname)
 REPO_DIR := $(shell pwd)
@@ -28,12 +28,18 @@ endif
 
 # --- Start/Stop everything ---
 
-up: generate dns-up
+check-env:
+	@if grep -qE '(changeme|CHANGE_ME_BEFORE_DEPLOY)' .env; then \
+		echo "ERROR: Default passwords detected in .env — please change before deploying."; \
+		exit 1; \
+	fi
+
+up: check-env generate dns-up
 	@echo "Starting Caddy..."
 ifeq ($(UNAME),Darwin)
-	docker compose up -d
+	docker compose --env-file .env up -d
 else
-	COMPOSE_PROFILES=linux docker compose up -d
+	COMPOSE_PROFILES=linux docker compose --env-file .env up -d
 endif
 	@echo ""
 	@echo "Gateway running. Test with: make test-dns"
@@ -113,7 +119,7 @@ endif
 status:
 	docker compose ps
 	@echo ""
-	@make dns-status
+	@$(MAKE) dns-status
 
 logs:
 	docker compose logs -f
