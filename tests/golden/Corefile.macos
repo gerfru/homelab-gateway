@@ -1,0 +1,6 @@
+test.example:53 {
+    bind 100.64.0.1
+    file /repo/dns/home.lab.zone
+    log
+    errors
+}

@@ -40,3 +40,23 @@ repos:
     hooks:
       - id: shellcheck
         name: ShellCheck
+
+  # --- Config Validation ---
+  - repo: local
+    hooks:
+      - id: docker-compose-validate
+        name: Docker Compose Validate
+        entry: >-
+          bash -c 'TAILSCALE_IP=100.0.0.1 DOMAIN=home.lab GF_ADMIN_USER=admin
+          GF_ADMIN_PASSWORD=test ALERTING_WEBHOOK_URL=http://localhost:9999
+          docker compose config --quiet'
+        language: system
+        files: 'docker-compose\.yml$'
+        pass_filenames: false
+
+      - id: template-generate-test
+        name: Template Generation Test
+        entry: bash tests/test-generate.sh
+        language: system
+        files: '(Caddyfile\.tmpl|dns/.*\.tmpl)$'
+        pass_filenames: false
