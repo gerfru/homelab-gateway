@@ -70,6 +70,8 @@ jobs:
       - name: Validate Caddyfile syntax
         run: |
           docker run --rm \
+            -e CADDY_AUTH_USER=admin \
+            -e 'CADDY_AUTH_PASS_HASH=$2a$14$dummyhashforcivalidation000000000000000000000000000000' \
             -v "$PWD/Caddyfile:/etc/caddy/Caddyfile:ro" \
             caddy:2-alpine \
             caddy validate --config /etc/caddy/Caddyfile
