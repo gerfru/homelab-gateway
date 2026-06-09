@@ -30,6 +30,15 @@
 	}
 }
 
+# Für Apps, die einen eigenen (besseren) CSP mitbringen: nur die Basis-Header,
+# KEIN Content-Security-Policy am Gateway. Caddys `header`-Direktive würde den
+# Upstream-CSP sonst ersetzen — hier reichen wir den App-CSP unverändert durch
+# (z. B. PulseBase: nonce-basiert mit 'strict-dynamic', strenger als ein
+# statischer Gateway-CSP).
+(security_headers_app_csp) {
+	import common_security
+}
+
 (common_log) {
 	log {
 		output stdout
@@ -51,10 +60,10 @@ niles.${DOMAIN} {
 	reverse_proxy {$NILES_UPSTREAM:niles_core:8000}
 }
 
-# PulseBase
+# PulseBase — bringt eigenen nonce-basierten CSP mit (siehe security_headers_app_csp)
 garmin.${DOMAIN} {
 	tls internal
-	import security_headers
+	import security_headers_app_csp
 	import common_log
 	reverse_proxy {$PULSEBASE_UPSTREAM:pulsebase-api:8000}
 }
