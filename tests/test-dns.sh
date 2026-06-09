@@ -6,6 +6,16 @@ set -euo pipefail
 : "${DOMAIN:?DOMAIN not set — run via 'make test-dns' or export DOMAIN}"
 : "${TAILSCALE_IP:?TAILSCALE_IP not set — run via 'make test-dns' or export TAILSCALE_IP}"
 
+# Prerequisite: CoreDNS must be reachable
+echo "Checking CoreDNS reachability at ${TAILSCALE_IP}:53..."
+if ! dig +short +timeout=3 +retry=1 "@${TAILSCALE_IP}" "${DOMAIN}" >/dev/null 2>&1; then
+  echo "ERROR: CoreDNS not reachable at ${TAILSCALE_IP}:53"
+  echo "  Start it with: make dns-up"
+  exit 1
+fi
+echo "CoreDNS reachable."
+echo ""
+
 PASS=0
 FAIL=0
 
@@ -27,8 +37,11 @@ echo ""
 assert_dns "niles.${DOMAIN}" "${TAILSCALE_IP}"
 assert_dns "garmin.${DOMAIN}" "${TAILSCALE_IP}"
 assert_dns "vikunja.${DOMAIN}" "${TAILSCALE_IP}"
+assert_dns "whatsapp.${DOMAIN}" "${TAILSCALE_IP}"
 assert_dns "status.${DOMAIN}" "${TAILSCALE_IP}"
 assert_dns "logs.${DOMAIN}" "${TAILSCALE_IP}"
+assert_dns "prometheus.${DOMAIN}" "${TAILSCALE_IP}"
+assert_dns "metrics.${DOMAIN}" "${TAILSCALE_IP}"
 assert_dns "random-wildcard.${DOMAIN}" "${TAILSCALE_IP}"
 
 echo ""
