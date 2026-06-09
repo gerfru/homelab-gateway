@@ -1,4 +1,13 @@
 apiVersion: 1
+# Alert delivery via webhook.
+# $ALERTING_WEBHOOK_URL is expanded from Grafana's environment.
+# If unset, falls back to http://localhost:9999 (unreachable) — alerts fail silently.
+#
+# Supported endpoints:
+#   - Discord: https://discord.com/api/webhooks/...
+#   - Slack:   https://hooks.slack.com/services/...
+#   - ntfy:    https://ntfy.sh/your-topic
+#   - Custom:  any HTTP POST endpoint
 contactPoints:
   - orgId: 1
     name: homelab-webhook
