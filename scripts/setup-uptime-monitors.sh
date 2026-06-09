@@ -20,6 +20,13 @@ if [[ -f .env ]]; then
 fi
 DOMAIN="${DOMAIN:?Set DOMAIN in .env or environment}"
 
+# Validate DOMAIN format: only lowercase alphanumeric, dots, hyphens
+if [[ ! "$DOMAIN" =~ ^[a-z0-9]([a-z0-9.-]*[a-z0-9])?$ ]]; then
+  echo "ERROR: Invalid DOMAIN format: '$DOMAIN'" >&2
+  echo "  DOMAIN must contain only lowercase letters, digits, dots, and hyphens." >&2
+  exit 1
+fi
+
 # Extract subdomains from Caddyfile.tmpl (lines matching: name.${DOMAIN} {)
 # shellcheck disable=SC2016
 SUBDOMAINS=$(grep -oE '^[a-z]+\.\$\{DOMAIN\}' "$CADDYFILE" \
@@ -43,6 +50,9 @@ EXISTING=$(docker exec "$CONTAINER" sqlite3 "$DB_PATH" \
 CREATED=0
 SKIPPED=0
 
+# Escape single quotes for sqlite3 (double them per SQL standard)
+safe_sql() { printf '%s' "${1//\'/\'\'}"; }
+
 for sub in $SUBDOMAINS; do
   URL="https://${sub}.${DOMAIN}"
   NAME="${sub}.${DOMAIN}"
@@ -53,13 +63,16 @@ for sub in $SUBDOMAINS; do
     continue
   fi
 
+  SAFE_NAME=$(safe_sql "$NAME")
+  SAFE_URL=$(safe_sql "$URL")
+
   docker exec "$CONTAINER" sqlite3 "$DB_PATH" \
     "INSERT INTO monitor
       (name, active, user_id, interval, url, type, method,
        maxretries, retry_interval, ignore_tls, maxredirects,
        accepted_statuscodes_json)
      VALUES
-      ('${NAME}', 1, 1, 60, '${URL}', 'http', 'GET',
+      ('${SAFE_NAME}', 1, 1, 60, '${SAFE_URL}', 'http', 'GET',
        3, 30, 1, 10, '[\"200-399\"]');"
 
   echo "  Created: ${NAME}"
