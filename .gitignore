@@ -2,3 +2,5 @@
 dns/Corefile
 dns/home.lab.zone
 /Caddyfile
+secrets/*
+!secrets/README.md

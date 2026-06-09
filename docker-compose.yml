@@ -32,7 +32,7 @@ services:
       - linux
 
   caddy:
-    image: caddy:2-alpine@sha256:77c07d5ebfa5be9fd6c820d2094ae662c9e7eeb9bf98346b7f639900263ee2a2
+    image: caddy:2.10-alpine@sha256:4c6e91c6ed0e2fa03efd5b44747b625fec79bc9cd06ac5235a779726618e530d
     container_name: gateway-caddy
     restart: unless-stopped
     security_opt:
@@ -194,11 +194,14 @@ services:
       - ALL
     environment:
       - GF_AUTH_ANONYMOUS_ENABLED=false
-      - GF_SECURITY_ADMIN_USER=${GF_ADMIN_USER}
-      - GF_SECURITY_ADMIN_PASSWORD=${GF_ADMIN_PASSWORD}
+      - GF_SECURITY_ADMIN_USER__FILE=/run/secrets/gf_admin_user
+      - GF_SECURITY_ADMIN_PASSWORD__FILE=/run/secrets/gf_admin_password
       - GF_USERS_ALLOW_SIGN_UP=false
       - GF_SERVER_ROOT_URL=https://logs.${DOMAIN}
       - ALERTING_WEBHOOK_URL=${ALERTING_WEBHOOK_URL:-http://localhost:9999}
+    secrets:
+      - gf_admin_user
+      - gf_admin_password
     volumes:
       - grafana-data:/var/lib/grafana
       - ./monitoring/grafana/provisioning:/etc/grafana/provisioning:ro
@@ -271,7 +274,7 @@ services:
         max-file: "2"
 
   tempo:
-    image: grafana/tempo:2.7.2@sha256:9b89af53103f8ea7ee19e33951c82f826b8c873baf89cf04d49c69fed76b737e
+    image: grafana/tempo:2.7.2@sha256:4b0277a9b572a4b1fa43b01468e58911ec214dd69d033f2cd476596d14de9fe3
     container_name: gateway-tempo
     restart: unless-stopped
     read_only: true
@@ -381,10 +384,10 @@ services:
         max-size: "5m"
         max-file: "2"
 
-  # --- Deployment (auto-update with label opt-in) ---
+  # --- Deployment (monitor-only — notifies about available updates, does not auto-apply) ---
 
   watchtower:
-    image: containrrr/watchtower:1.7.1@sha256:f9086bfda061100361fc2bacf069585678d760d705cf390918ccdbda8a00980b
+    image: containrrr/watchtower:1.7.1@sha256:6dd50763bbd632a83cb154d5451700530d1e44200b268a4e9488fefdfcf2b038
     container_name: gateway-watchtower
     restart: unless-stopped
     read_only: true
@@ -398,6 +401,7 @@ services:
       - WATCHTOWER_CLEANUP=true
       - WATCHTOWER_INCLUDE_STOPPED=false
       - WATCHTOWER_NO_STARTUP_MESSAGE=true
+      - WATCHTOWER_MONITOR_ONLY=true
     volumes:
       - /var/run/docker.sock:/var/run/docker.sock:ro
     networks:
@@ -430,3 +434,9 @@ networks:
   monitoring:
     name: monitoring
     driver: bridge
+
+secrets:
+  gf_admin_user:
+    file: ./secrets/gf_admin_user
+  gf_admin_password:
+    file: ./secrets/gf_admin_password
