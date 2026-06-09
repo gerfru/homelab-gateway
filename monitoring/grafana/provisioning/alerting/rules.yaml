@@ -143,6 +143,51 @@ groups:
 
       - uid: high-error-rate
         title: HighErrorRate
+        condition: C
+        data:
+          - refId: A
+            relativeTimeRange:
+              from: 300
+              to: 0
+            datasourceUid: prometheus
+            model:
+              expr: >-
+                sum(rate(caddy_http_requests_total{code=~"[45].."}[5m]))
+              instant: true
+              refId: A
+          - refId: B
+            relativeTimeRange:
+              from: 300
+              to: 0
+            datasourceUid: prometheus
+            model:
+              expr: >-
+                sum(rate(caddy_http_requests_total[5m]))
+              instant: true
+              refId: B
+          - refId: C
+            relativeTimeRange:
+              from: 0
+              to: 0
+            datasourceUid: __expr__
+            model:
+              type: math
+              expression: ($A / $B) * 100
+              conditions:
+                - evaluator:
+                    type: gt
+                    params:
+                      - 1
+              refId: C
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: >-
+            HTTP error rate above 1% (4xx+5xx / total requests) over 5 minutes
+
+      - uid: auth-failures
+        title: AuthFailures
         condition: B
         data:
           - refId: A
@@ -152,8 +197,8 @@ groups:
             datasourceUid: loki
             model:
               expr: >-
-                sum(count_over_time({project=~".+"}
-                |~ "(?i)error|exception|traceback|critical" [5m]))
+                sum(count_over_time({service="caddy"}
+                | json | status =~ "40[13]" [5m]))
               instant: true
               refId: A
           - refId: B
@@ -168,10 +213,82 @@ groups:
                 - evaluator:
                     type: gt
                     params:
-                      - 20
+                      - 10
               refId: B
-        for: 2m
+        for: 5m
         labels:
           severity: warning
         annotations:
-          summary: More than 20 errors in logs within 5 minutes
+          summary: >-
+            More than 10 authentication failures (HTTP 401/403) from Caddy
+            in 5 minutes
+
+      - uid: high-p95-latency
+        title: HighP95Latency
+        condition: B
+        data:
+          - refId: A
+            relativeTimeRange:
+              from: 300
+              to: 0
+            datasourceUid: prometheus
+            model:
+              expr: >-
+                histogram_quantile(0.95,
+                  sum(rate(caddy_http_request_duration_seconds_bucket[5m])) by (le))
+              instant: true
+              refId: A
+          - refId: B
+            relativeTimeRange:
+              from: 0
+              to: 0
+            datasourceUid: __expr__
+            model:
+              type: threshold
+              expression: A
+              conditions:
+                - evaluator:
+                    type: gt
+                    params:
+                      - 2
+              refId: B
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: 95th percentile HTTP latency above 2 seconds for 5 minutes
+
+      # Covers Prometheus scrape targets only (node, caddy, loki, grafana,
+      # promtail, tempo). Full container restart detection requires cAdvisor.
+      - uid: container-restart-loop
+        title: ContainerRestartLoop
+        condition: B
+        data:
+          - refId: A
+            relativeTimeRange:
+              from: 900
+              to: 0
+            datasourceUid: prometheus
+            model:
+              expr: changes(up[15m])
+              instant: true
+              refId: A
+          - refId: B
+            relativeTimeRange:
+              from: 0
+              to: 0
+            datasourceUid: __expr__
+            model:
+              type: threshold
+              expression: A
+              conditions:
+                - evaluator:
+                    type: gt
+                    params:
+                      - 4
+              refId: B
+        for: 0s
+        labels:
+          severity: critical
+        annotations:
+          summary: "Service {{ $labels.job }} restarted more than 4 times in 15 minutes"
