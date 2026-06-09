@@ -328,8 +328,7 @@ CoreDNS · Caddy · Grafana · Prometheus · Loki · Promtail · Tempo · node-e
 Uptime Kuma · Watchtower · Docker Socket Proxy
 
 Eleven containers — one for DNS, one for HTTPS, nine for observability and operations —
-behind a Tailscale WireGuard mesh. See **[implementation-plan.md](implementation-plan.md)**
-for the full build history.
+behind a Tailscale WireGuard mesh.
 
 ---
 
