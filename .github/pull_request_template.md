@@ -11,6 +11,11 @@
 - [ ] Docs / Config
 - [ ] Dependency Update
 
+## Breaking Changes
+
+- [ ] Dieser PR enthält Breaking Changes
+  <!-- Falls ja: betroffene Services/Config und Migrations-Schritte hier beschreiben -->
+
 ## Test-Checkliste
 
 - [ ] CI Pipeline läuft grün (lint, docker-compose-validate, secret-scan, caddyfile-validate, trivy, semgrep, checkov)
