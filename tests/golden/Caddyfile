@@ -31,6 +31,15 @@
 	}
 }
 
+# Für Apps, die einen eigenen (besseren) CSP mitbringen: nur die Basis-Header,
+# KEIN Content-Security-Policy am Gateway. Caddys `header`-Direktive würde den
+# Upstream-CSP sonst ersetzen — hier reichen wir den App-CSP unverändert durch
+# (z. B. PulseBase: nonce-basiert mit 'strict-dynamic', strenger als ein
+# statischer Gateway-CSP).
+(security_headers_app_csp) {
+	import common_security
+}
+
 (common_log) {
 	log {
 		output stdout
@@ -39,20 +48,25 @@
 	}
 }
 
+# HTTP-to-HTTPS redirect
+http://*.test.example {
+	redir https://{host}{uri} permanent
+}
+
 # Niles AI
 niles.test.example {
 	tls internal
 	import security_headers
 	import common_log
-	reverse_proxy niles_core:8000
+	reverse_proxy {$NILES_UPSTREAM:niles_core:8000}
 }
 
-# PulseBase
+# PulseBase — bringt eigenen nonce-basierten CSP mit (siehe security_headers_app_csp)
 garmin.test.example {
 	tls internal
-	import security_headers
+	import security_headers_app_csp
 	import common_log
-	reverse_proxy pulsebase-api:8000
+	reverse_proxy {$PULSEBASE_UPSTREAM:pulsebase-api:8000}
 }
 
 # Vikunja (Todos)
@@ -60,7 +74,7 @@ vikunja.test.example {
 	tls internal
 	import security_headers
 	import common_log
-	reverse_proxy vikunja:3456
+	reverse_proxy {$VIKUNJA_UPSTREAM:vikunja:3456}
 }
 
 # Evolution API (WhatsApp)
@@ -68,7 +82,7 @@ whatsapp.test.example {
 	tls internal
 	import security_headers
 	import common_log
-	reverse_proxy evolution_api:8080
+	reverse_proxy {$WHATSAPP_UPSTREAM:evolution_api:8080}
 }
 
 # Uptime Kuma (Status Page)
@@ -76,7 +90,7 @@ status.test.example {
 	tls internal
 	import security_headers_relaxed
 	import common_log
-	reverse_proxy gateway-uptime:3001
+	reverse_proxy {$UPTIME_UPSTREAM:gateway-uptime:3001}
 }
 
 # Grafana (Logs)
@@ -84,7 +98,7 @@ logs.test.example {
 	tls internal
 	import security_headers_relaxed
 	import common_log
-	reverse_proxy gateway-grafana:3000
+	reverse_proxy {$GRAFANA_UPSTREAM:gateway-grafana:3000}
 }
 
 # Prometheus (Metrics UI) — password protected
@@ -95,7 +109,7 @@ prometheus.test.example {
 	basicauth {
 		{$CADDY_AUTH_USER} {$CADDY_AUTH_PASS_HASH}
 	}
-	reverse_proxy prometheus:9090
+	reverse_proxy {$PROMETHEUS_UPSTREAM:prometheus:9090}
 }
 
 # Caddy Metrics — password protected

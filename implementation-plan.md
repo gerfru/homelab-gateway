@@ -8,15 +8,15 @@ Dedupliziert: **91 Roh-Findings → 67 unique Tasks** (24 Duplikate eliminiert)
 
 ## Uebersicht
 
-| Wave | Thema | Tasks | Aufwand | Ziel |
-|:----:|-------|:-----:|:-------:|------|
-| 1 | CI Security Gates + Secrets | 7 | S-M | Supply-Chain blockiert, Credentials geschuetzt |
-| 2 | Onboarding & Quick Wins | 8 | S | Erster `git clone` funktioniert reibungslos |
-| 3 | Alerting & Observability | 8 | S-M | Funktionierende Alert-Pipeline, keine toten Regeln |
-| 4 | Security Hardening | 10 | S-M | Container gehaertet, Injection gefixt, CSP differenziert |
-| 5 | Tests & CI | 10 | S-M | Vollstaendige Test-Abdeckung, CI-Luecken geschlossen |
-| 6 | Dokumentation & Operator Polish | 9 | S-M | README, Makefile-Feedback, Upgrade/Backup |
-| 7 | Langfristig / Kommerziell | 15 | M-L | Weiterverkauf-Readiness |
+| Wave | Thema | Tasks | Aufwand | Status | Ziel |
+| :----: | ------- | :-----: | :-------: | :------: | ------ |
+| 1 | CI Security Gates + Secrets | 7 | S-M | ✅ PR #51 | Supply-Chain blockiert, Credentials geschuetzt |
+| 2 | Onboarding & Quick Wins | 8 | S | ✅ PR #51 | Erster `git clone` funktioniert reibungslos |
+| 3 | Alerting & Observability | 8 | S-M | ✅ PR #53 | Funktionierende Alert-Pipeline, keine toten Regeln |
+| 4 | Security Hardening | 10 | S-M | ✅ PR #54 | Container gehaertet, Injection gefixt, CSP differenziert |
+| 5 | Tests & CI | 10 | S-M | ✅ PR #55 | Vollstaendige Test-Abdeckung, CI-Luecken geschlossen |
+| 6 | Dokumentation & Operator Polish | 9 | S-M | ✅ PR #57 | README, Makefile-Feedback, Upgrade/Backup |
+| 7 | Langfristig / Kommerziell | 15 | M-L | ✅ | Weiterverkauf-Readiness |
 
 **Aufwand:** S = < 30 Min, M = 30-120 Min, L = > 2h
 
@@ -144,29 +144,42 @@ Dedupliziert: **91 Roh-Findings → 67 unique Tasks** (24 Duplikate eliminiert)
 
 ---
 
-## Wave 7 — Langfristig / Kommerziell
+## Wave 7 ✅ — Langfristig / Kommerziell
 
 **Ziel:** Weiterverkauf-Readiness, Konfigurierbarkeit, professioneller Betrieb.
 
-| # | Task | Quelle | Datei | Aufwand |
-|---|------|--------|-------|:-------:|
-| 7.1 | `make dry-run` Target (Preview ohne Deployment) | U-09 | Makefile | S |
-| 7.2 | CHANGELOG.md fuehren (oder Release Please Workflow) | U-17, App #46 | CHANGELOG.md, .github/workflows/ | M |
-| 7.3 | Caddyfile Backing-Service-URLs als Env-Vars (`NILES_UPSTREAM` etc.) | App #14 | Caddyfile.tmpl | M |
-| 7.4 | Healthchecks ergaenzen wo moeglich (Watchtower, Tempo); Loki/Promtail distroless dokumentieren | App #15, #27 | docker-compose.yml | M |
-| 7.5 | `stop_grace_period: 30s` fuer Prometheus, Loki, Grafana | App #28 | docker-compose.yml | S |
-| 7.6 | Retention als Env-Vars mit Defaults (Prometheus, Loki) | App #29 | docker-compose.yml, loki-config.yml | S |
-| 7.7 | Caddy Rate Limiting evaluieren (caddy-ratelimit Plugin) | App #32 | Caddyfile.tmpl | M |
-| 7.8 | OAuth2/OIDC evaluieren (Authelia/Caddy-Security statt Basicauth) | App #31 | Caddyfile.tmpl | L |
-| 7.9 | CD-Pipeline evaluieren (SSH-Deploy oder GitOps) | App #45 | .github/workflows/ | L |
-| 7.10 | Interner Service-Traffic: mTLS evaluieren (fuer Multi-Node) | S-12 | monitoring/ | L |
-| 7.11 | COMPOSE_PROJECT_NAME in .env.example | App #54 | .env.example | S |
-| 7.12 | HTTP-to-HTTPS Redirect (Port 80) | App #53 | docker-compose.yml, Caddyfile.tmpl | S |
-| 7.13 | Tempo: Tracing-Beispielkonfiguration dokumentieren | App #48 | README.md oder docs/ | M |
-| 7.14 | Prometheus Self-Monitoring (`job_name: prometheus`) | App #50 | prometheus.yml | S |
-| 7.15 | Kosmetik-Batch: Volume-Namenskonvention (#33), docs/ entfernen (#34), SENTRY_DSN (#35), Test-Scaffolding DRY (#38), Subdomain-Extraktion (#40), Tempo OTLP Kommentar (#47), CoreDNS macOS Log Rotation (#51), CoreDNS PID /var/run (#S-14) | App #33-#51, S-14 | diverse | M |
+| # | Task | Quelle | Datei | Aufwand | Status |
+| --- | ------ | -------- | ------- | :-------: | :------: |
+| 7.1 | `make dry-run` Target (Preview ohne Deployment) | U-09 | Makefile | S | ✅ |
+| 7.2 | CHANGELOG via Release Please Workflow | U-17, App #46 | .github/workflows/ | M | ✅ |
+| 7.3 | Caddyfile Backing-Service-URLs als Env-Vars (`NILES_UPSTREAM` etc.) | App #14 | Caddyfile.tmpl | M | ✅ |
+| 7.4 | Healthchecks ergaenzen (Watchtower, Tempo); Loki/Promtail distroless dokumentiert | App #15, #27 | docker-compose.yml | M | ✅ |
+| 7.5 | `stop_grace_period: 30s` fuer Prometheus, Loki, Grafana | App #28 | docker-compose.yml | S | ✅ |
+| 7.6 | Retention als Env-Vars mit Defaults (Prometheus, Loki) | App #29 | docker-compose.yml | S | ✅ |
+| 7.7 | Caddy Rate Limiting evaluieren | App #32 | — | M | Closed |
+| 7.8 | OAuth2/OIDC evaluieren | App #31 | — | L | Closed |
+| 7.9 | CD-Pipeline evaluieren | App #45 | — | L | Closed |
+| 7.10 | mTLS intern evaluieren | S-12 | — | L | Closed |
+| 7.11 | COMPOSE_PROJECT_NAME in .env.example | App #54 | .env.example | S | ✅ |
+| 7.12 | HTTP-to-HTTPS Redirect (Port 80) | App #53 | docker-compose.yml, Caddyfile.tmpl | S | ✅ |
+| 7.13 | Tempo: Tracing-Beispielkonfiguration dokumentieren | App #48 | README.md | M | ✅ |
+| 7.14 | Prometheus Self-Monitoring (`job_name: prometheus`) | App #50 | prometheus.yml | S | ✅ |
+| 7.15 | Kosmetik-Batch: docs/ entfernen, SENTRY_DSN entfernen, Test-DRY (lib.sh), Subdomain-Regex, Tempo OTLP Kommentar, CoreDNS Log Rotation, PID Kommentar | App #33-#51, S-14 | diverse | M | ✅ |
 
-**Validierung:** Fuer jeden Task individuell; OAuth2/OIDC und CD-Pipeline sind Evaluierungs-Tasks
+### Decision Records (7.7–7.10)
+
+Alle vier Evaluierungs-Tasks wurden als **nicht noetig** fuer den aktuellen Betrieb bewertet:
+
+| Task | Thema | Entscheidung |
+| ------ | ------- | ------------- |
+| 7.7 | Caddy Rate Limiting | Nicht noetig — Tailscale-only, kein oeffentlicher Traffic. Caddy-ratelimit Plugin bleibt Option fuer spaeter. |
+| 7.8 | OAuth2/OIDC (Authelia) | Nicht noetig — Tailscale ACLs + Caddy basicauth reicht fuer Single-User-Homelab. |
+| 7.9 | CD-Pipeline (SSH-Deploy/GitOps) | Nicht noetig — Single-Node-Setup, `git pull && make up` reicht. |
+| 7.10 | mTLS intern | Nicht noetig — Single-Host, Docker-Netzwerk isoliert, kein Multi-Node-Betrieb geplant. |
+
+Volume-Namenskonvention (#33) wurde bewusst uebersprungen: Volume-Rename erfordert Datenmigration aller bestehenden Installationen. Kosmetischer Nutzen rechtfertigt das Risiko nicht.
+
+**Validierung:** `make test` (21/21), `docker compose config`, `shellcheck -x`, `make dry-run`
 
 ---
 

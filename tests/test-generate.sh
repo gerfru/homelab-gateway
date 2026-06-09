@@ -1,4 +1,5 @@
 #!/usr/bin/env bash
+# shellcheck source-path=SCRIPTDIR
 # test-generate.sh — Golden-file test for template generation
 # Runs WITHOUT a live stack. Uses fixed test values.
 set -euo pipefail
@@ -13,18 +14,16 @@ GOLDEN_DIR="$SCRIPT_DIR/golden"
 TMP_DIR=$(mktemp -d)
 trap 'rm -rf "$TMP_DIR"' EXIT
 
-PASS=0
-FAIL=0
+# shellcheck disable=SC1091
+source "$SCRIPT_DIR/lib.sh"
 
 check() {
   local label="$1" generated="$2" golden="$3"
   if diff -u "$golden" "$generated" >/dev/null 2>&1; then
-    echo "  PASS: $label"
-    PASS=$((PASS + 1))
+    pass "$label"
   else
-    echo "  FAIL: $label"
+    fail "$label"
     diff -u "$golden" "$generated" || true
-    FAIL=$((FAIL + 1))
   fi
 }
 
@@ -46,9 +45,8 @@ echo "Generating from templates..."
 echo "Checking for unreplaced variables..."
 for f in "$TMP_DIR"/*; do
   if grep -qE '\$\{[A-Z_]+\}' "$f"; then
-    echo "  FAIL: Unreplaced variables in $(basename "$f")"
+    fail "Unreplaced variables in $(basename "$f")"
     grep -nE '\$\{[A-Z_]+\}' "$f"
-    FAIL=$((FAIL + 1))
   fi
 done
 
@@ -59,6 +57,4 @@ check "Corefile (Linux)" "$TMP_DIR/Corefile.linux" "$GOLDEN_DIR/Corefile.linux"
 check "Corefile (macOS)" "$TMP_DIR/Corefile.macos" "$GOLDEN_DIR/Corefile.macos"
 check "home.lab.zone" "$TMP_DIR/home.lab.zone" "$GOLDEN_DIR/home.lab.zone"
 
-echo ""
-echo "Results: $PASS passed, $FAIL failed"
-[[ $FAIL -eq 0 ]]
+results
