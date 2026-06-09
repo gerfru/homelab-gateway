@@ -70,6 +70,12 @@ GF_ADMIN_USER=admin
 GF_ADMIN_PASSWORD=<strong-password>
 UPTIME_KUMA_USERNAME=admin
 UPTIME_KUMA_PASSWORD=<strong-password>
+
+# Optional: basicauth for prometheus.home.lab and metrics.home.lab
+# Generate hash: docker run --rm caddy:2-alpine caddy hash-password --plaintext 'yourpassword'
+# IMPORTANT: Wrap hash in single quotes (bcrypt $ signs break Docker Compose interpolation)
+# CADDY_AUTH_USER=admin
+# CADDY_AUTH_PASS_HASH='$2a$14$...'
 ```
 
 ### 2. Generate config + start
@@ -228,6 +234,8 @@ The DNS wildcard already resolves `myapp.home.lab` — no DNS changes needed.
 | `make logs-dns` | Live CoreDNS logs |
 | `make status` | Container + DNS status |
 | `make dns-status` | Check if CoreDNS is running |
+| `make check-env` | Verify no default passwords in .env |
+| `make test-update-golden` | Regenerate golden test files |
 | `make clean` | Stop + remove volumes + generated files |
 | `./scripts/setup-uptime-monitors.sh` | Provision Uptime Kuma monitors from Caddyfile.tmpl |
 
@@ -269,7 +277,7 @@ make generate && make up
 CoreDNS · Caddy · Grafana · Prometheus · Loki · Promtail · Tempo · node-exporter ·
 Uptime Kuma · Watchtower · Docker Socket Proxy
 
-Twelve containers — one for DNS, one for HTTPS, ten for observability and operations —
+Eleven containers — one for DNS, one for HTTPS, nine for observability and operations —
 behind a Tailscale WireGuard mesh. See **[implementation-plan.md](implementation-plan.md)**
 for the full build history.
 
