@@ -23,7 +23,8 @@ assert_healthy() {
 assert_prom_target() {
   local job="$1"
   local up
-  up=$(curl -sf "http://localhost:9090/api/v1/query?query=up%7Bjob%3D%22${job}%22%7D" \
+  up=$(docker compose exec -T prometheus wget -qO- \
+    "http://localhost:9090/api/v1/query?query=up%7Bjob%3D%22${job}%22%7D" 2>/dev/null \
     | jq -r '.data.result[0].value[1] // "missing"' 2>/dev/null || echo "error")
   if [[ "$up" == "1" ]]; then
     echo "  PASS: Prometheus target '$job' is up"
