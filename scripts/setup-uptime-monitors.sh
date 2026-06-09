@@ -29,7 +29,7 @@ fi
 
 # Extract subdomains from Caddyfile.tmpl (lines matching: name.${DOMAIN} {)
 # shellcheck disable=SC2016
-SUBDOMAINS=$(grep -oE '^[a-z]+\.\$\{DOMAIN\}' "$CADDYFILE" \
+SUBDOMAINS=$(grep -oE '^[a-z][-a-z0-9]*\.\$\{DOMAIN\}' "$CADDYFILE" \
   | sed 's/\.\${DOMAIN}//' | sort -u)
 
 if [[ -z "$SUBDOMAINS" ]]; then
