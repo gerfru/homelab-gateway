@@ -8,7 +8,7 @@ set -euo pipefail
 : "${TAILSCALE_IP:?TAILSCALE_IP not set — run via 'make test-smoke' or export TAILSCALE_IP}"
 
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
-# shellcheck source=lib.sh
+# shellcheck disable=SC1091
 source "$SCRIPT_DIR/lib.sh"
 
 assert_healthy() {

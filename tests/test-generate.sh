@@ -14,7 +14,7 @@ GOLDEN_DIR="$SCRIPT_DIR/golden"
 TMP_DIR=$(mktemp -d)
 trap 'rm -rf "$TMP_DIR"' EXIT
 
-# shellcheck source=lib.sh
+# shellcheck disable=SC1091
 source "$SCRIPT_DIR/lib.sh"
 
 check() {

@@ -18,7 +18,7 @@ echo "CoreDNS reachable."
 echo ""
 
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
-# shellcheck source=lib.sh
+# shellcheck disable=SC1091
 source "$SCRIPT_DIR/lib.sh"
 
 assert_dns() {
