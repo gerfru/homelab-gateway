@@ -1,3 +1,4 @@
+; GENERATED FILE — DO NOT EDIT (source: dns/home.lab.zone.tmpl)
 $ORIGIN test.example.
 @   3600 IN SOA  ns.test.example. admin.test.example. (1 3600 1200 604800 300)
 @   3600 IN NS   ns.test.example.

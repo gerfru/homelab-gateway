@@ -30,13 +30,17 @@ check() {
 
 echo "Generating from templates..."
 # shellcheck disable=SC2016
-envsubst '$DOMAIN $TAILSCALE_IP $ZONE_FILE' < "$REPO_DIR/dns/Corefile.macos.tmpl" > "$TMP_DIR/Corefile.macos"
+{ echo "# GENERATED FILE — DO NOT EDIT (source: dns/Corefile.macos.tmpl)"; \
+  envsubst '$DOMAIN $TAILSCALE_IP $ZONE_FILE' < "$REPO_DIR/dns/Corefile.macos.tmpl"; } > "$TMP_DIR/Corefile.macos"
 # shellcheck disable=SC2016
-envsubst '$DOMAIN $TAILSCALE_IP' < "$REPO_DIR/dns/Corefile.tmpl" > "$TMP_DIR/Corefile.linux"
+{ echo "# GENERATED FILE — DO NOT EDIT (source: dns/Corefile.tmpl)"; \
+  envsubst '$DOMAIN $TAILSCALE_IP' < "$REPO_DIR/dns/Corefile.tmpl"; } > "$TMP_DIR/Corefile.linux"
 # shellcheck disable=SC2016
-envsubst '$DOMAIN $TAILSCALE_IP' < "$REPO_DIR/dns/home.lab.zone.tmpl" > "$TMP_DIR/home.lab.zone"
+{ echo "; GENERATED FILE — DO NOT EDIT (source: dns/home.lab.zone.tmpl)"; \
+  envsubst '$DOMAIN $TAILSCALE_IP' < "$REPO_DIR/dns/home.lab.zone.tmpl"; } > "$TMP_DIR/home.lab.zone"
 # shellcheck disable=SC2016
-envsubst '$DOMAIN' < "$REPO_DIR/Caddyfile.tmpl" > "$TMP_DIR/Caddyfile"
+{ echo "# GENERATED FILE — DO NOT EDIT (source: Caddyfile.tmpl)"; \
+  envsubst '$DOMAIN' < "$REPO_DIR/Caddyfile.tmpl"; } > "$TMP_DIR/Caddyfile"
 
 # Check for unreplaced ${...} variables
 echo "Checking for unreplaced variables..."
