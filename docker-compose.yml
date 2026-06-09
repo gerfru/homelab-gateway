@@ -271,7 +271,7 @@ services:
         max-file: "2"
 
   tempo:
-    image: grafana/tempo:2.7.2
+    image: grafana/tempo:2.7.2@sha256:9b89af53103f8ea7ee19e33951c82f826b8c873baf89cf04d49c69fed76b737e
     container_name: gateway-tempo
     restart: unless-stopped
     read_only: true
@@ -384,7 +384,7 @@ services:
   # --- Deployment (auto-update with label opt-in) ---
 
   watchtower:
-    image: containrrr/watchtower:1.7.1
+    image: containrrr/watchtower:1.7.1@sha256:f9086bfda061100361fc2bacf069585678d760d705cf390918ccdbda8a00980b
     container_name: gateway-watchtower
     restart: unless-stopped
     read_only: true
