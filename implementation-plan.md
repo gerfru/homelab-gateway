@@ -17,7 +17,7 @@
 | 5 | ~~PR-05~~ [#32](https://github.com/gerfru/homelab-gateway/pull/32) ✅ | ~~Observability: Alerting + Scrape Coverage~~ | 8 | M | prometheus.yml, promtail-config.yml, docker-compose.yml, Grafana Alerting + Dashboards |
 | 6 | ~~PR-06~~ [#38](https://github.com/gerfru/homelab-gateway/pull/38) ✅ | ~~Code Quality + Cleanup~~ | 10 | S | scripts/check-pii.sh, Makefile, .env.example, .claude/CLAUDE.md |
 | 7 | ~~PR-07~~ [#40](https://github.com/gerfru/homelab-gateway/pull/40) ✅ | ~~Testing Foundation~~ | 7 | M | tests/, .pre-commit-config.yaml, Makefile |
-| 8 | PR-08 | Long-term: Deployment, Tracing, Error Tracking | 4 | L | docker-compose.yml, ci.yml, Makefile |
+| 8 | ~~PR-08~~ [#42](https://github.com/gerfru/homelab-gateway/pull/42) ✅ | ~~Long-term: Deployment, Tracing, Error Tracking~~ | 6 | L | docker-compose.yml, Caddyfile.tmpl, tempo-config.yml, ci.yml |
 
 **Gesamt:** 62 Findings in 8 PRs
 
@@ -221,29 +221,28 @@
 
 ---
 
-## Wave 8 — PR-08: Long-term (Optional / Backlog)
+## ~~Wave 8 — PR-08: Long-term (Backlog)~~ ✅ Erledigt
 
-**Priorität:** ⚪ BACKLOG — Kein sofortiger Handlungsbedarf
-**Begründung:** Diese Items sind „nice to have" für ein Solo-Homelab. Umsetzung wenn Zeit und Bedarf.
+**PR:** [#42](https://github.com/gerfru/homelab-gateway/pull/42) — gemergt 2026-06-09
 
-### Findings
+### Umgesetzt
 
-| # | Finding | Severity | Aktion |
-|---|---------|----------|--------|
-| 14 | Kein OpenTelemetry / Tracing | High | OTEL Collector Container, Caddy Tracing Plugin |
-| 15 | Kein Sentry / Error Tracking | High | GlitchTip self-hosted oder Sentry Cloud Free Tier |
-| 39 | Keine Deployment-Pipeline | Medium | Watchtower oder SSH-Deploy on merge-to-main |
-| 22 | Kein Caddy-Level Auth | Medium | forward_auth mit Tailscale Header oder basicauth |
-| 47 | Loki Auth nur Tenant-Header | Low | Auth-Proxy vor Loki (wenn Multi-User) |
-| 59 | Uptime Kuma Config nicht versioniert | Low | ✅ Provisionierungs-Script in PR #34 (`scripts/setup-uptime-monitors.sh`) |
+| # | Finding | Severity | Ergebnis |
+|---|---------|----------|----------|
+| 14 | Kein OpenTelemetry / Tracing | High | ✅ Grafana Tempo als Trace-Backend (OTLP gRPC/HTTP), Grafana Datasource + Prometheus Scrape Target |
+| 15 | Kein Sentry / Error Tracking | High | ✅ Sentry.io DSN-Platzhalter in `.env.example` (bestehender Account, kein neuer Container) |
+| 39 | Keine Deployment-Pipeline | Medium | ✅ Watchtower mit Label-basiertem Opt-in (taeglich 4 Uhr, 8 Services) |
+| 22 | Kein Caddy-Level Auth | Medium | ✅ `basicauth` auf `prometheus.*` und `metrics.*` Subdomains |
+| 47 | Loki Auth nur Tenant-Header | Low | ✅ Dokumentiert in `.claude/CLAUDE.md` — adaequat fuer Single-User-Setup |
+| 59 | Uptime Kuma Config nicht versioniert | Low | ✅ Bereits in PR #34 erledigt (`scripts/setup-uptime-monitors.sh`) |
 
-### Betroffene Dateien
-```
-docker-compose.yml               → OTEL Collector, GlitchTip, Watchtower
-Caddyfile.tmpl                   → forward_auth / basicauth
-.github/workflows/deploy.yml     → neu (SSH-Deploy)
-Makefile                          → make deploy Target
-```
+### Validierung
+
+- [x] `make test` → 4/4 Golden-File Checks bestanden (Caddyfile mit basicauth)
+- [x] `docker compose config --quiet` → valide (mit Tempo + Watchtower)
+- [x] CI Pipeline: alle 7 Checks gruen
+- [ ] (Mit Stack) `docker compose up -d` → tempo + watchtower starten
+- [ ] (Mit Stack) Grafana → Tempo Datasource erreichbar
 
 ---
 
@@ -254,12 +253,11 @@ Makefile                          → make deploy Target
 | Architecture & 12-Factor | 🟡 | 🟢 | 🟢 |
 | Security (ASVS L1) | 🟡 | 🟢 | 🟢 |
 | Code Quality | 🟡 | 🟢 | 🟢 |
-| Tests & Reliability | 🔴 | 🟡 | 🟢 |
+| Tests & Reliability | 🔴 | 🟡 | ✅ 🟢 |
 | CI/CD & Delivery | 🔴 | 🟢 | 🟢 |
 | Observability & Ops | 🟡 | 🟢 | 🟢 |
 
-**Erwartetes Gesamtergebnis nach Wave 7:** 5× 🟢, 1× 🟡 (Tests — volle Behavioral Tests brauchen mehr Zeit)
-**Nach Wave 8:** 6× 🟢
+**Gesamtergebnis nach Wave 8:** 6× 🟢 — Alle Waves abgeschlossen.
 
 ---
 
