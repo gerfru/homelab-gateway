@@ -1,287 +1,221 @@
-# Umsetzungsplan — homelab-gateway
+# Implementation Plan — homelab-gateway
 
-**Erstellt:** 2026-06-08
-**Basis:** review-app-report.md (62 Findings) + review-secure-report.md (24 Findings)
-**Strategie:** 8 PRs in aufsteigender Risiko-Reihenfolge — Security first, dann Hardening, dann Quality of Life
-
----
-
-## Übersicht
-
-| Wave | PR | Thema | Findings | Effort | Dateien |
-|:---:|---|---|:---:|:---:|:---:|
-| 1 | ~~PR-01~~ [#25](https://github.com/gerfru/homelab-gateway/pull/25) ✅ | ~~GitHub Repo Security Gates~~ | 7 | S | GitHub Settings, ci.yml, dependabot.yml, renovate.json |
-| 2 | ~~PR-02~~ [#27](https://github.com/gerfru/homelab-gateway/pull/27) ✅ | ~~Container Hardening (docker-compose)~~ | 12 | S | docker-compose.yml |
-| 3 | ~~PR-03~~ [#28](https://github.com/gerfru/homelab-gateway/pull/28) ✅ | ~~Caddy Template + Config Hygiene~~ | 8 | S | Caddyfile.tmpl, Makefile, docker-compose.yml |
-| 4 | ~~PR-04~~ [#29](https://github.com/gerfru/homelab-gateway/pull/29) ✅ | ~~CI Pipeline Erweiterung (Trivy, Semgrep, Checkov)~~ | 6 | M | ci.yml, .pre-commit-config.yaml |
-| 5 | ~~PR-05~~ [#32](https://github.com/gerfru/homelab-gateway/pull/32) ✅ | ~~Observability: Alerting + Scrape Coverage~~ | 8 | M | prometheus.yml, promtail-config.yml, docker-compose.yml, Grafana Alerting + Dashboards |
-| 6 | ~~PR-06~~ [#38](https://github.com/gerfru/homelab-gateway/pull/38) ✅ | ~~Code Quality + Cleanup~~ | 10 | S | scripts/check-pii.sh, Makefile, .env.example, .claude/CLAUDE.md |
-| 7 | ~~PR-07~~ [#40](https://github.com/gerfru/homelab-gateway/pull/40) ✅ | ~~Testing Foundation~~ | 7 | M | tests/, .pre-commit-config.yaml, Makefile |
-| 8 | ~~PR-08~~ [#42](https://github.com/gerfru/homelab-gateway/pull/42) ✅ | ~~Long-term: Deployment, Tracing, Error Tracking~~ | 6 | L | docker-compose.yml, Caddyfile.tmpl, tempo-config.yml, ci.yml |
-
-**Gesamt:** 62 Findings in 8 PRs
+Datum: 2026-06-09
+Quellen: `review-app-report.md` (54 Findings) · `review-secure-report.md` (20 Findings) · `review-ux-report.md` (17 Findings)
+Dedupliziert: **91 Roh-Findings → 67 unique Tasks** (24 Duplikate eliminiert)
 
 ---
 
-## ~~Wave 1 — PR-01: GitHub Repo Security Gates~~ ✅ Erledigt
+## Uebersicht
 
-**PR:** [#25](https://github.com/gerfru/homelab-gateway/pull/25) — gemergt 2026-06-08
+| Wave | Thema | Tasks | Aufwand | Ziel |
+|:----:|-------|:-----:|:-------:|------|
+| 1 | CI Security Gates + Secrets | 7 | S-M | Supply-Chain blockiert, Credentials geschuetzt |
+| 2 | Onboarding & Quick Wins | 8 | S | Erster `git clone` funktioniert reibungslos |
+| 3 | Alerting & Observability | 8 | S-M | Funktionierende Alert-Pipeline, keine toten Regeln |
+| 4 | Security Hardening | 10 | S-M | Container gehaertet, Injection gefixt, CSP differenziert |
+| 5 | Tests & CI | 10 | S-M | Vollstaendige Test-Abdeckung, CI-Luecken geschlossen |
+| 6 | Dokumentation & Operator Polish | 9 | S-M | README, Makefile-Feedback, Upgrade/Backup |
+| 7 | Langfristig / Kommerziell | 15 | M-L | Weiterverkauf-Readiness |
 
-### Umgesetzt
-
-| # | Finding | Severity | Ergebnis |
-|---|---------|----------|----------|
-| 1 | No branch protection on main | Critical | ✅ Ruleset "main" aktiv (ID: 17406994) |
-| 3 | GitHub secret scanning disabled | Critical | ⚠️ Nicht verfügbar auf free private — TruffleHog in CI kompensiert |
-| 35 | Dependabot AND Renovate both configured | Medium | ✅ `dependabot.yml` gelöscht |
-| 36 | Renovate missing automerge config | Medium | ✅ 4 packageRules (Actions patch: automerge, Docker digest+patch: automerge, minor/major: Review) |
-| 37 | Repository merge settings wrong | Medium | ✅ Squash-only, delete-branch-on-merge, auto-merge |
-| 38 | No PR template | Medium | ✅ `.github/pull_request_template.md` erstellt |
-| 57 | No rollback documented | Low | ✅ Rollback-Sektion in README.md |
-
-### Validierung
-
-- [x] Branch protection aktiv: Ruleset "main" mit 4 Required Status Checks
-- [x] Secret scanning: nicht verfügbar (free private), TruffleHog kompensiert
-- [x] Squash-only: `allow_merge_commit=false`, `allow_rebase_merge=false`
-- [x] Renovate Dashboard Issue erwartet (nach nächstem Renovate-Lauf)
+**Aufwand:** S = < 30 Min, M = 30-120 Min, L = > 2h
 
 ---
 
-## ~~Wave 2 — PR-02: Container Hardening~~ ✅ Erledigt
+## Wave 1 — CI Security Gates + Secrets
 
-**PR:** [#27](https://github.com/gerfru/homelab-gateway/pull/27) — gemergt 2026-06-08
+**Ziel:** Keine verwundbaren Images mehr in Production. Credentials nicht ueber Docker API lesbar.
 
-### Umgesetzt
+| # | Task | Quelle | Datei | Aufwand |
+|---|------|--------|-------|:-------:|
+| 1.1 | Trivy `--exit-code 1`, `--severity CRITICAL,HIGH`, `\|\| true` entfernen | App #1, S-02 | ci.yml:112 | S |
+| 1.2 | Golden-Files erstellen: `make test-update-golden`, Ergebnis committen | App #2 | tests/golden/ | S |
+| 1.3 | test-generate Job in CI-Pipeline hinzufuegen | App #3 | ci.yml | S |
+| 1.4 | Secrets aus Docker Env-Vars → Docker Secrets / `__FILE`-Suffixe migrieren (Grafana, Caddy) | S-01, S-07 | docker-compose.yml, secrets/ | M |
+| 1.5 | Watchtower auf `WATCHTOWER_MONITOR_ONLY=true` umstellen (oder entfernen) | S-03 | docker-compose.yml:396 | S |
+| 1.6 | Branch Protection auf `main` verifizieren und aktivieren | App #6 | GitHub Settings | S |
+| 1.7 | `.gitignore`: `secrets/` Verzeichnis aufnehmen | S-01 | .gitignore | S |
 
-| # | Finding | Severity | Ergebnis |
-|---|---------|----------|----------|
-| C-01 | Docker socket in Promtail | Critical (ISEC) | ✅ Docker Socket Proxy (Tecnativa) eingeführt, direkter Socket-Zugriff entfernt |
-| C-02 | node-exporter mountet gesamtes Host-FS | Critical (ISEC) | ✅ Auf `/proc`, `/sys`, `/rootfs` eingeschränkt + command flags |
-| 8 | Health checks auf 7/8 Services fehlen | High | ✅ Health Checks auf Caddy, Grafana, Prometheus, node-exporter, socket-proxy (Loki/Promtail: distroless) |
-| 19 | Promtail läuft als root | Medium | ✅ Entfernt (distroless Image handhabt User intern) |
-| 20 | Uptime Kuma: cap_drop + root | Medium | ✅ `cap_drop: ALL`, `cap_add: SETGID, SETUID` |
-| 21 | CoreDNS: cap_drop fehlt | Medium | ✅ `cap_drop: ALL`, `cap_add: NET_BIND_SERVICE` |
-| 24 | Caddy: Resource Limits fehlen | Medium | ✅ 256m / 0.50 CPU |
-| 25 | CoreDNS: Resource Limits fehlen | Medium | ✅ 64m / 0.10 CPU |
-| 28 | CoreDNS: Log Rotation fehlt | Medium | ✅ json-file, 5m, 2 Dateien |
-| 29 | depends_on ohne service_healthy | Medium | ✅ `condition: service_healthy` wo möglich |
-| 49 | read_only: true nicht gesetzt | Low | ✅ `read_only: true` + `tmpfs` auf allen passenden Services |
-| 50 | Uptime Kuma: cap_drop fehlt | Low | ✅ (zusammen mit #20) |
-
-### Validierung
-
-- [x] `docker compose up -d` startet ohne Fehler
-- [x] `docker compose ps` zeigt alle Services als "healthy"
-- [x] Promtail nutzt Socket Proxy statt direkten Docker Socket
-- [x] Caddy hat Memory-Limit (256m)
+**Abhaengigkeiten:** 1.4 → 1.7 (secrets/ muss gitignored sein bevor Dateien erstellt werden)
+**Validierung:** CI gruent, `docker inspect gateway-grafana` zeigt keine Klartext-Passwoerter, `make test` erfolgreich
 
 ---
 
-## ~~Wave 3 — PR-03: Caddy Template + Config Hygiene~~ ✅ Erledigt
+## Wave 2 — Onboarding & Quick Wins
 
-**PR:** [#28](https://github.com/gerfru/homelab-gateway/pull/28) — gemergt 2026-06-08
+**Ziel:** `git clone` → `make help` → `make up` funktioniert ohne Stolpersteine.
 
-### Umgesetzt
+| # | Task | Quelle | Datei | Aufwand |
+|---|------|--------|-------|:-------:|
+| 2.1 | `include .env` → `-include .env` (optional include) | App #18, U-03 | Makefile:3 | S |
+| 2.2 | `make help` Target mit Auto-Discovery aus `##`-Kommentaren; `.DEFAULT_GOAL := help` | U-01 | Makefile | S |
+| 2.3 | Alle Make-Targets mit `## Beschreibung` kommentieren | U-01 | Makefile | S |
+| 2.4 | `make clean` mit Bestaetigungs-Prompt (`read -p`) | U-02 | Makefile:160 | S |
+| 2.5 | `check-env` erweitern: .env-Existenz, Placeholder-IP, CADDY_AUTH-Warnung | App #8, S-08, U-08 | Makefile:31-35 | S |
+| 2.6 | `.env.example`: CADDY_AUTH_USER/PASS_HASH auskommentiert → Pflichtfeld mit CHANGE_ME | U-04, S-08 | .env.example:22-23 | S |
+| 2.7 | README: Prerequisites-Sektion (Docker, Tailscale, envsubst, dig, jq) | U-05 | README.md | S |
+| 2.8 | macOS dns-up: sudo-Vorwarnung ("Port 53 requires sudo") | U-12 | Makefile:54 | S |
 
-| # | Finding | Severity | Ergebnis |
-|---|---------|----------|----------|
-| H-01 | CoreDNS Linux Corefile: bind fehlt | High (ISEC) | ✅ `bind ${TAILSCALE_IP}` in `dns/Corefile.tmpl` |
-| 18 | CSP Header fehlt | Medium | ✅ `Content-Security-Policy` in `(security_headers)` Snippet |
-| 26 | Grafana ROOT_URL hardcoded | Medium | ✅ `GF_SERVER_ROOT_URL=https://logs.${DOMAIN}` |
-| 27 | Caddyfile.tmpl hardcodes home.lab | Medium | ✅ Alle `home.lab` → `${DOMAIN}`, Makefile: `envsubst` |
-| 30 | Caddyfile.tmpl Naming-Mismatch | Medium | ✅ (zusammen mit #27) |
-| 31 | Caddy Log Block 6× dupliziert | Medium | ✅ `(common_log)` Snippet extrahiert |
-| 43 | Promtail: monitoring=true Label fehlt | Medium | ✅ Label auf Caddy, Grafana, Prometheus, Uptime Kuma |
-| 45 | Promtail Version hinter Loki | Medium | ✅ Via Renovate auf aktuellen Stand gebracht |
-
-### Validierung
-
-- [x] `make generate` erzeugt korrekte Caddyfile mit substituierten Domains
-- [x] `grep '\${' Caddyfile` findet KEINE nicht-substituierten Variablen
-- [x] CSP Header sichtbar: `curl -kI https://niles.home.lab`
-- [x] `(common_log)` Snippet wird in allen vhost-Blöcken verwendet
+**Abhaengigkeiten:** 2.1 vor 2.2 (help braucht optionalen include)
+**Validierung:** Frischer `git clone` → `make` zeigt Hilfe, `make up` mit unvollstaendiger .env gibt klare Fehler
 
 ---
 
-## ~~Wave 4 — PR-04: CI Pipeline Erweiterung~~ ✅ Erledigt
+## Wave 3 — Alerting & Observability
 
-**PR:** [#29](https://github.com/gerfru/homelab-gateway/pull/29) — gemergt 2026-06-08
+**Ziel:** Alerts erreichen den Operator. Keine toten Regeln, keine Duplikate.
 
-### Umgesetzt
+| # | Task | Quelle | Datei | Aufwand |
+|---|------|--------|-------|:-------:|
+| 3.1 | Prometheus `alert-rules.yml` entfernen + `rule_files`-Block aus prometheus.yml entfernen (Grafana Unified Alerting ist Single Source of Truth) | App #4, #9 | prometheus.yml, alert-rules.yml, docker-compose.yml:318 | S |
+| 3.2 | `monitoring=true` Labels auf Loki, Tempo, Watchtower setzen | App #10, S-09 | docker-compose.yml | S |
+| 3.3 | Grafana: AuthFailures-Alert-Regel ergaenzen (Caddy 401/403 aus Loki) | S-05 | rules.yaml | S |
+| 3.4 | HighErrorRate von absolut (>20) auf prozentual (>1% via Caddy-Metriken) umstellen | App #12 | rules.yaml:144 | S |
+| 3.5 | Fehlende Alerts: p95-Latenz, Container-Restart-Loop | App #11 | rules.yaml | M |
+| 3.6 | Promtail positions aus tmpfs → Named Volume oder Host-Mount | App #13 | promtail-config.yml:5, docker-compose.yml | S |
+| 3.7 | `ALERTING_WEBHOOK_URL` in .env.example als Pflichtfeld markieren + check-env ergaenzen | App #4, S-10 | .env.example, Makefile | S |
+| 3.8 | Webhook Contact Point: Fallback-Kontaktpunkt konfigurieren (oder zumindest dokumentieren) | App #49 | contactpoints.yaml | S |
 
-| # | Finding | Severity | Ergebnis |
-|---|---------|----------|----------|
-| 2 | Kein Trivy Container Scanning | Critical | ✅ Trivy Job scannt alle Images (informational, CRITICAL severity) |
-| 9 | Kein Semgrep SAST | High | ✅ Semgrep mit `--config auto --error --severity ERROR` |
-| 10 | Keine SBOM-Generierung | High | ✅ Anchore SBOM Action auf Tag-Push (`release.yml`) |
-| 23 | Trivy in CI fehlt (Security-Axis) | Medium | ✅ (zusammen mit #2) |
-| 48 | Kein IaC Scanning | Low | ✅ Checkov als Required Check |
-| 33 | Pre-commit Hook Order | Medium | ✅ Bestehende Reihenfolge beibehalten (TruffleHog → Lint) |
-
-### Validierung
-
-- [x] CI Pipeline hat 7 Jobs: lint, docker-compose-validate, secret-scan, caddyfile-validate, trivy, semgrep, checkov
-- [x] Trivy scannt alle Images aus docker-compose.yml
-- [x] Semgrep läuft auf Shell-Scripts und YAML
-- [x] SBOM wird bei Tag-Push generiert (release.yml)
+**Abhaengigkeiten:** 3.1 vor 3.4 (erst Duplikate entfernen, dann Rules ueberarbeiten)
+**Validierung:** `make test-smoke` gruent, Grafana Alerting zeigt alle Regeln als "OK", Webhook erreichbar
 
 ---
 
-## ~~Wave 5 — PR-05: Observability — Alerting + Scrape Coverage~~ ✅ Erledigt
+## Wave 4 — Security Hardening
 
-**PR:** [#32](https://github.com/gerfru/homelab-gateway/pull/32) — gemergt 2026-06-08
-**Zusätzliche PRs:** [#33](https://github.com/gerfru/homelab-gateway/pull/33) (Prometheus/Metrics Subdomains), [#34](https://github.com/gerfru/homelab-gateway/pull/34) (Uptime Kuma Provisioning)
+**Ziel:** Container-Haertung konsistent, Injection gefixt, CSP differenziert.
 
-### Umgesetzt
+| # | Task | Quelle | Datei | Aufwand |
+|---|------|--------|-------|:-------:|
+| 4.1 | SQL-Injection Fix: DOMAIN-Validierung + SQL-Escaping in setup-uptime-monitors.sh | App #16, S-04 | scripts/setup-uptime-monitors.sh:56 | S |
+| 4.2 | CSP pro Subdomain differenzieren: restriktive CSP fuer niles/garmin/vikunja, laxe nur fuer Grafana/Uptime Kuma | App #7, S-06 | Caddyfile.tmpl:8-18 | M |
+| 4.3 | socket-proxy: `cap_drop: [ALL]` hinzufuegen | App #26 | docker-compose.yml:120 | S |
+| 4.4 | Grafana: `user: "472:472"` statt `"472:0"` | App #30, S-13 | docker-compose.yml:190 | S |
+| 4.5 | Grafana: `read_only: true` + `tmpfs: [/tmp]` | App #24 | docker-compose.yml:186 | S |
+| 4.6 | Uptime Kuma: `read_only: true` + tmpfs testen | App #25 | docker-compose.yml:349 | S |
+| 4.7 | PII IP-Regex praezisieren (Oktett-Validierung) + IPv6-Regex ergaenzen | App #19, S-11 | promtail-config.yml:43 | S |
+| 4.8 | Permissions-Policy erweitern: `payment=(), usb=(), bluetooth=()` | App #23 | Caddyfile.tmpl:13 | S |
+| 4.9 | Watchtower: Docker-Socket-Zugriff als akzeptiertes Risiko kommentieren | App #5 | docker-compose.yml:401 | S |
+| 4.10 | Uptime Kuma SETUID/SETGID + node-exporter pid:host als akzeptiert kommentieren | S-15, S-16 | docker-compose.yml:358, 237 | S |
 
-| # | Finding | Severity | Ergebnis |
-|---|---------|----------|----------|
-| 4 | Keine Prometheus Alert Rules | Critical | ✅ 5 Grafana Unified Alerting Rules (HighCPU, HighMemory, DiskAlmostFull, TargetDown, HighErrorRate) |
-| 5 | Kein Alertmanager / Notification Channel | Critical | ✅ Grafana Unified Alerting + Webhook Contact Point (`ALERTING_WEBHOOK_URL`) |
-| 16 | Prometheus scrapes nur node-exporter | High | ✅ 5 Scrape Targets: node-exporter, caddy:9180, loki:3100, grafana:3000, promtail:9080 |
-| 32 | Inkonsistente Error-Regex in Grafana Panels | Medium | ✅ `traceback` zu Panels 4 und 6 hinzugefügt |
-| 44 | Grafana: Latency/Traffic Panels fehlen | Medium | ✅ 3 Caddy-Panels: Request Rate, p95 Latency, HTTP Errors (system-monitoring.json) |
-| 46 | CoreDNS: Logging + Resource Limits fehlen | Medium | ✅ Bereits in PR-02 erledigt |
-| H-04 | PII in Logs ohne Scrubbing (GDPR) | High (ISEC) | ✅ Promtail replace-Stages für IPs und Emails |
-| 61 | Loki Retention nur 7 Tage | Low | ✅ Auf 336h (14 Tage) erhöht |
-
-### Zusätzlich umgesetzt (über Findings hinaus)
-
-- Caddy Metrics-Endpoint (`:9180`) mit `servers { metrics }` in Global Options
-- Caddy auf `monitoring` Network (für Prometheus Scraping)
-- `prometheus.home.lab` und `metrics.home.lab` Subdomains in Caddyfile.tmpl
-- Grafana Loki Datasource: `uid: loki` für Alerting-Rule-Referenzen
-- Grafana Alerting Provisioning: `rules.yaml`, `contactpoints.yaml`, `policies.yaml`
-- Uptime Kuma Monitor Provisioning Script (`scripts/setup-uptime-monitors.sh`)
-
-### Validierung
-
-- [x] Prometheus Targets Page: 5 Targets (node, caddy, loki, grafana, promtail) — alle "up"
-- [x] Grafana: Alerting → 5 Alert Rules provisioniert
-- [x] Grafana: Contact Point "homelab-webhook" konfiguriert
-- [x] Promtail: IP-Adressen in Loki als `[IP_REDACTED]` sichtbar
-- [x] Grafana Panels 2, 4, 6 zeigen konsistente Error-Counts
-- [x] Caddy Metrics über `metrics.home.lab` erreichbar
-- [x] Prometheus UI über `prometheus.home.lab` erreichbar
-- [x] Uptime Kuma: 8 Monitors automatisch provisioniert
+**Abhaengigkeiten:** 4.4 erfordert Volume-Permission-Anpassung (`chown 472:472` auf grafana-data)
+**Validierung:** `docker compose config --quiet` erfolgreich, `make test-smoke` gruent, ShellCheck/Semgrep clean
 
 ---
 
-## ~~Wave 6 — PR-06: Code Quality + Cleanup~~ ✅ Erledigt
+## Wave 5 — Tests & CI ✅ (PR #55)
 
-**PR:** [#38](https://github.com/gerfru/homelab-gateway/pull/38) — gemergt 2026-06-09
+**Ziel:** Test-Luecken geschlossen, CI deckt alle kritischen Pfade ab.
 
-### Umgesetzt
+| # | Task | Quelle | Datei | Aufwand |
+|---|------|--------|-------|:-------:|
+| 5.1 | ShellCheck scandir: `scripts` → `.` (oder `scripts` + `tests` explizit) | App #17 | ci.yml:27 | S |
+| 5.2 | test-dns.sh: Alle 8 Subdomains testen (+ whatsapp, prometheus, metrics) | App #39 | tests/test-dns.sh:27-32 | S |
+| 5.3 | test-dns.sh: CoreDNS-Erreichbarkeits-Check als Prerequisite | U-11 | tests/test-dns.sh:1 | S |
+| 5.4 | PII-Redaktions-Test: Testlog mit IP/E-Mail einspeisen, Redaktion in Loki verifizieren | App #41 | tests/ (neu) | M |
+| 5.5 | Security-Header-Test: Assertions fuer HSTS, CSP, X-Frame-Options im Smoke-Test | App #42 | tests/test-smoke.sh | M |
+| 5.6 | Checkov CKV2_GHA_1 Skip mit Inline-Kommentar begruenden | App #43 | ci.yml:139 | S |
+| 5.7 | PR Template: "Breaking Changes"-Checkbox ergaenzen | App #44 | pull_request_template.md | S |
+| 5.8 | GitHub-native Secret Scanning aktivieren (fuer Public Repo) | App #22 | GitHub Settings | S |
+| 5.9 | Repo-Settings pruefen: Squash merge, Delete branch, Dependabot alerts | App #20 | GitHub Settings | S |
+| 5.10 | Renovate Digest-Automerge: bewusste Abweichung dokumentieren oder Schedule hinzufuegen | App #21 | renovate.json | S |
 
-| # | Finding | Severity | Ergebnis |
-|---|---------|----------|----------|
-| H-02 | Weak Default Credentials in .env.example | High (ISEC) | ✅ `changeme` → `CHANGE_ME_BEFORE_DEPLOY` + `check-env` Guard in Makefile |
-| H-03 | Makefile: include .env + export leakt Secrets | High (ISEC) | ✅ Blanket `export` → `export DOMAIN TAILSCALE_IP`, `--env-file .env` für Docker Compose |
-| 51 | Orphaned requirements.txt | Low | ✅ Entfernt — kein Python im Repo (Uptime-Kuma-Script in Bash umgeschrieben) |
-| 52 | Bash echo piped to grep | Low | ✅ `[[ "$match" =~ $pattern ]]` in check-pii.sh |
-| 53 | grep ohne -- Separator | Low | ✅ `grep -oE -- "$REGEX"` in check-pii.sh |
-| 54 | Makefile: recursive make call | Low | ✅ `@make` → `@$(MAKE)` |
-| 55 | .PHONY unvollständig | Low | ✅ `logs-caddy`, `logs-dns`, `check-env` hinzugefügt |
-| 56 | Grafana datasource uid leer | Low | ✅ Bereits in Wave 5 erledigt |
-| 60 | Uptime Kuma: Major-Version Tag :1 | Low | ⏭️ Übersprungen — bereits `:2` mit SHA256-Digest, Renovate managed |
-| 34 | TruffleHog statt gitleaks | Medium | ✅ Deviation dokumentiert in `.claude/CLAUDE.md` |
-
-### Validierung
-
-- [x] `shellcheck scripts/check-pii.sh` → 0 Warnungen
-- [x] `docker compose config --quiet` → valide
-- [x] `make up` mit Default-Passwörtern → Fehler mit klarer Meldung
-- [x] CI Pipeline: alle 7 Checks grün
+**Validierung:** CI gruent mit allen neuen Jobs, `make test` + `make test-smoke` erfolgreich
 
 ---
 
-## ~~Wave 7 — PR-07: Testing Foundation~~ ✅ Erledigt
+## Wave 6 — Dokumentation & Operator Polish
 
-**PR:** [#40](https://github.com/gerfru/homelab-gateway/pull/40) — gemergt 2026-06-09
+**Ziel:** Klare Kommunikation, gutes Feedback, Upgrade- und Backup-Pfad.
 
-### Umgesetzt
+| # | Task | Quelle | Datei | Aufwand |
+|---|------|--------|-------|:-------:|
+| 6.1 | `make up` Output: Service-URLs + "Verify/Status"-Hinweise nach Start | U-06 | Makefile:37-45 | S |
+| 6.2 | `make generate`: "GENERATED FILE"-Header in generierten Dateien | U-07 | Makefile:12-27 | S |
+| 6.3 | `make up`: Fehlerkontext bei Docker-Compose-Fehlern (Troubleshooting-Hinweise) | U-10 | Makefile:40 | S |
+| 6.4 | README: Upgrade-Sektion (`git pull && make generate && make up`) | U-13 | README.md | S |
+| 6.5 | `make backup` / `make restore` Targets fuer Volume-Sicherung | U-14 | Makefile | M |
+| 6.6 | `make down`: Zusammenfassendes Feedback was gestoppt wurde | U-16 | Makefile:47-48 | S |
+| 6.7 | UPTIME_KUMA_USERNAME/PASSWORD: Kommentar in .env.example praezisieren ("used by setup-uptime-monitors.sh, not by container") | U-18, App #36 | .env.example:13-14 | S |
+| 6.8 | README Quickstart: Tailscale-Admin-Berechtigung erwaehnen | U-15 | README.md | S |
+| 6.9 | README: "5 Alert Rules" → "5 Grafana Unified Alerting rules" praezisieren | App #37 | README.md:179 | S |
 
-| # | Finding | Severity | Ergebnis |
-|---|---------|----------|----------|
-| 6 | Zero automated tests | Critical | ✅ `tests/` Verzeichnis mit 3 Test-Scripts + Golden Files |
-| 12 | Keine DNS-Resolution-Tests | High | ✅ `tests/test-dns.sh` — dig mit Assertions (6 Domains) |
-| 40 | Template-Generation ohne Validierung | Medium | ✅ `tests/test-generate.sh` — Golden-File Test (4 Templates) |
-| 41 | make test-dns nicht in CI | Medium | ⏭️ Lokal via `make test-dns` (braucht laufenden CoreDNS, CI-Minuten sparen) |
-| 42 | Kein Monitoring-Pipeline Smoke Test | Medium | ✅ `tests/test-smoke.sh` — Health Checks + Prometheus Targets |
-| 58 | Kein pre-commit Hook für compose/Caddy | Low | ✅ 2 Hooks: docker-compose-validate + template-generate-test |
-| 11 | CI hat keine Behavioral Tests | High | ⏭️ Lokal via `make test-smoke` (CI-Minuten sparen) |
-
-### Validierung
-
-- [x] `make test` → 4/4 Golden-File Checks bestanden
-- [x] `shellcheck tests/*.sh` → 0 Warnungen
-- [x] Pre-commit: docker-compose-validate und template-generate-test konfiguriert
-- [x] CI Pipeline: alle 7 bestehenden Checks grün
+**Validierung:** `make help` zeigt alle Targets, `make backup` + `make restore` Round-Trip funktioniert
 
 ---
 
-## ~~Wave 8 — PR-08: Long-term (Backlog)~~ ✅ Erledigt
+## Wave 7 — Langfristig / Kommerziell
 
-**PR:** [#42](https://github.com/gerfru/homelab-gateway/pull/42) — gemergt 2026-06-09
+**Ziel:** Weiterverkauf-Readiness, Konfigurierbarkeit, professioneller Betrieb.
 
-### Umgesetzt
+| # | Task | Quelle | Datei | Aufwand |
+|---|------|--------|-------|:-------:|
+| 7.1 | `make dry-run` Target (Preview ohne Deployment) | U-09 | Makefile | S |
+| 7.2 | CHANGELOG.md fuehren (oder Release Please Workflow) | U-17, App #46 | CHANGELOG.md, .github/workflows/ | M |
+| 7.3 | Caddyfile Backing-Service-URLs als Env-Vars (`NILES_UPSTREAM` etc.) | App #14 | Caddyfile.tmpl | M |
+| 7.4 | Healthchecks ergaenzen wo moeglich (Watchtower, Tempo); Loki/Promtail distroless dokumentieren | App #15, #27 | docker-compose.yml | M |
+| 7.5 | `stop_grace_period: 30s` fuer Prometheus, Loki, Grafana | App #28 | docker-compose.yml | S |
+| 7.6 | Retention als Env-Vars mit Defaults (Prometheus, Loki) | App #29 | docker-compose.yml, loki-config.yml | S |
+| 7.7 | Caddy Rate Limiting evaluieren (caddy-ratelimit Plugin) | App #32 | Caddyfile.tmpl | M |
+| 7.8 | OAuth2/OIDC evaluieren (Authelia/Caddy-Security statt Basicauth) | App #31 | Caddyfile.tmpl | L |
+| 7.9 | CD-Pipeline evaluieren (SSH-Deploy oder GitOps) | App #45 | .github/workflows/ | L |
+| 7.10 | Interner Service-Traffic: mTLS evaluieren (fuer Multi-Node) | S-12 | monitoring/ | L |
+| 7.11 | COMPOSE_PROJECT_NAME in .env.example | App #54 | .env.example | S |
+| 7.12 | HTTP-to-HTTPS Redirect (Port 80) | App #53 | docker-compose.yml, Caddyfile.tmpl | S |
+| 7.13 | Tempo: Tracing-Beispielkonfiguration dokumentieren | App #48 | README.md oder docs/ | M |
+| 7.14 | Prometheus Self-Monitoring (`job_name: prometheus`) | App #50 | prometheus.yml | S |
+| 7.15 | Kosmetik-Batch: Volume-Namenskonvention (#33), docs/ entfernen (#34), SENTRY_DSN (#35), Test-Scaffolding DRY (#38), Subdomain-Extraktion (#40), Tempo OTLP Kommentar (#47), CoreDNS macOS Log Rotation (#51), CoreDNS PID /var/run (#S-14) | App #33-#51, S-14 | diverse | M |
 
-| # | Finding | Severity | Ergebnis |
-|---|---------|----------|----------|
-| 14 | Kein OpenTelemetry / Tracing | High | ✅ Grafana Tempo als Trace-Backend (OTLP gRPC/HTTP), Grafana Datasource + Prometheus Scrape Target |
-| 15 | Kein Sentry / Error Tracking | High | ✅ Sentry.io DSN-Platzhalter in `.env.example` (bestehender Account, kein neuer Container) |
-| 39 | Keine Deployment-Pipeline | Medium | ✅ Watchtower mit Label-basiertem Opt-in (taeglich 4 Uhr, 8 Services) |
-| 22 | Kein Caddy-Level Auth | Medium | ✅ `basicauth` auf `prometheus.*` und `metrics.*` Subdomains |
-| 47 | Loki Auth nur Tenant-Header | Low | ✅ Dokumentiert in `.claude/CLAUDE.md` — adaequat fuer Single-User-Setup |
-| 59 | Uptime Kuma Config nicht versioniert | Low | ✅ Bereits in PR #34 erledigt (`scripts/setup-uptime-monitors.sh`) |
-
-### Validierung
-
-- [x] `make test` → 4/4 Golden-File Checks bestanden (Caddyfile mit basicauth)
-- [x] `docker compose config --quiet` → valide (mit Tempo + Watchtower)
-- [x] CI Pipeline: alle 7 Checks gruen
-- [ ] (Mit Stack) `docker compose up -d` → tempo + watchtower starten
-- [ ] (Mit Stack) Grafana → Tempo Datasource erreichbar
-
----
-
-## Zusammenfassung: Erwarteter Zustand nach allen Waves
-
-| Axis | Vorher | Nach Wave 1-7 | Nach Wave 8 |
-|------|:---:|:---:|:---:|
-| Architecture & 12-Factor | 🟡 | 🟢 | 🟢 |
-| Security (ASVS L1) | 🟡 | 🟢 | 🟢 |
-| Code Quality | 🟡 | 🟢 | 🟢 |
-| Tests & Reliability | 🔴 | 🟡 | ✅ 🟢 |
-| CI/CD & Delivery | 🔴 | 🟢 | 🟢 |
-| Observability & Ops | 🟡 | 🟢 | 🟢 |
-
-**Gesamtergebnis nach Wave 8:** 6× 🟢 — Alle Waves abgeschlossen.
+**Validierung:** Fuer jeden Task individuell; OAuth2/OIDC und CD-Pipeline sind Evaluierungs-Tasks
 
 ---
 
-## Abhängigkeiten zwischen PRs
+## Compliance-Abdeckung
+
+| Regulation | Finding | Abgedeckt in Wave |
+|------------|---------|:-----------------:|
+| DSGVO Art. 32 (Technische Massnahmen) | C-01: PII-Redaktion unvollstaendig | Wave 3 (3.2) + Wave 4 (4.7) |
+| DSGVO Art. 33 (Breach Notification) | C-04: Alerting nicht funktional | Wave 3 (3.1-3.8) |
+| ISO 27001 A.8.15 (Logging) | C-02: Kein Security-Event-Logging | Wave 3 (3.3) |
+| ISO 27001 A.8.29 (Security Testing) | C-03: Kein DAST, Trivy non-blocking | Wave 1 (1.1) + Wave 5 (5.4-5.5) |
+| EU AI Act | Nicht anwendbar | — |
+
+---
+
+## Abhaengigkeits-Graph
 
 ```
-PR-01 (Branch Protection)  ←  Muss zuerst, damit alle weiteren PRs durch CI laufen
-  ↓
-PR-02 (Container Hardening)  ←  Health Checks werden von PR-05 und PR-07 gebraucht
-  ↓
-PR-03 (Caddy + Config)  ←  Template-Änderungen vor Testing (PR-07 braucht korrekte Templates)
-  ↓
-PR-04 (CI Erweiterung)  ←  Trivy/Semgrep sollten laufen, bevor weitere PRs gemergt werden
-  ↓
-PR-05 (Observability)  ←  Braucht erweiterte Prometheus Targets aus PR-02 (Caddy Metrics)
-  ↓
-PR-06 (Code Quality)  ←  Unabhängig, kann parallel zu PR-05
-  ↓
-PR-07 (Testing)  ←  Braucht Health Checks (PR-02), Templates (PR-03), CI (PR-04)
-  ↓
-PR-08 (Backlog)  ←  Unabhängig, bei Bedarf
+Wave 1 (CI + Secrets)
+  │
+  ├──→ Wave 2 (Onboarding)     ← kann parallel zu Wave 1 starten
+  │
+  ├──→ Wave 3 (Alerting)       ← nach Wave 1 (Secrets muessen migriert sein)
+  │         │
+  │         └──→ Wave 4 (Hardening)  ← nach Wave 3 (PII-Regex haengt von Labels ab)
+  │                   │
+  │                   └──→ Wave 5 (Tests)  ← nach Wave 4 (Tests pruefen Security-Fixes)
+  │
+  └──→ Wave 6 (Doku)           ← nach Wave 2 (Makefile muss stabil sein)
+              │
+              └──→ Wave 7 (Kommerziell)  ← nach Wave 6
 ```
+
+Empfehlung: **Wave 1 + Wave 2 parallel starten.** Wave 1 auf einem Feature-Branch, Wave 2 direkt auf main (risikoarme Quick-Wins).
 
 ---
 
-*Erstellt mit AI-Unterstützung (Claude Code + dev-best-practices Plugin).
-Alle Angaben sind zu verifizieren — kein Ersatz für manuelle Prüfung.*
+## Statistik nach Quelle
+
+| Quelle | Roh-Findings | Davon Unique | In Plan |
+|--------|:------------:|:------------:|:-------:|
+| review-app-report.md | 54 | 39 | 39 |
+| review-secure-report.md | 20 | 14 | 14 |
+| review-ux-report.md | 17 | 14 | 14 |
+| **Gesamt** | **91** | **67** | **67** |
+
+Duplikate (24): Trivy (App/Secure), CSP (App/Secure), check-env (App/Secure/UX), monitoring-Labels (App/Secure), IP-Regex (App/Secure), SQL-Injection (App/Secure), include .env (App/UX), Alert-Void (App/Secure), Grafana GID (App/Secure), CADDY_AUTH (Secure/UX), und weitere Ueberlappungen.
+
+---
+
+*Erstellt auf Basis der drei Review-Reports vom 2026-06-09.
+Generiert mit AI-Unterstuetzung (Claude Code + dev-best-practices plugin).*

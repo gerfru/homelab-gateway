@@ -105,6 +105,8 @@ make up
 
 ### 3. Configure Tailscale Split DNS (once)
 
+> **Note:** Split DNS configuration requires **admin access** to the Tailscale admin console.
+
 1. Open https://login.tailscale.com/admin/dns
 2. Under **Nameservers** -> "Add nameserver" -> "Custom"
 3. Enter your Tailscale IP (e.g. `100.x.x.x`)
@@ -194,7 +196,7 @@ External apps (connect via 'proxy' network):
 
 ### Alerting + Monitoring
 
-- **Grafana Unified Alerting** — 5 rules (HighCPU, HighMemory, DiskAlmostFull, TargetDown, HighErrorRate) with webhook notifications
+- **Grafana Unified Alerting** — 8 rules (HighCPU, HighMemory, DiskAlmostFull, TargetDown, HighErrorRate, AuthFailures, HighP95Latency, ContainerRestartLoop) with webhook notifications
 - **Uptime Kuma** — auto-provisioned monitors from Caddyfile subdomains via `./scripts/setup-uptime-monitors.sh`
 - **Watchtower** — daily container update checks at 4 AM (monitor-only, notifies but does not auto-apply)
 
@@ -254,6 +256,8 @@ The DNS wildcard already resolves `myapp.home.lab` — no DNS changes needed.
 | `make dns-status` | Check if CoreDNS is running |
 | `make check-env` | Verify no default passwords in .env |
 | `make test-update-golden` | Regenerate golden test files |
+| `make backup` | Backup all Docker volumes to `backups/` |
+| `make restore BACKUP=<file>` | Restore Docker volumes from backup |
 | `make clean` | Stop + remove volumes + generated files |
 | `./scripts/setup-uptime-monitors.sh` | Provision Uptime Kuma monitors from Caddyfile.tmpl |
 
@@ -286,6 +290,25 @@ docker compose up -d <service-name>
 make down
 git checkout <known-good-commit>
 make generate && make up
+```
+
+---
+
+## Upgrade
+
+```bash
+git pull
+make generate
+make up
+```
+
+Docker Compose recreates only containers whose images or config changed. For a safer upgrade:
+
+```bash
+make backup
+git pull
+make generate && make up
+make test-dns && make test-smoke
 ```
 
 ---
