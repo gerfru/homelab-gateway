@@ -147,7 +147,7 @@ homelab-gateway
 ├── Loki ─────────────── Log aggregation (port 3100, localhost only)
 ├── Promtail ─────────── Log collection via Docker labels
 ├── Grafana ──────────── Dashboards + Unified Alerting
-├── Prometheus ───────── Time-series metrics (6 scrape targets, 30d retention)
+├── Prometheus ───────── Time-series metrics (7 scrape targets, 30d retention)
 ├── Tempo ────────────── Distributed tracing (OTLP gRPC + HTTP)
 ├── node-exporter ────── System metrics (CPU, RAM, disk, network)
 ├── Uptime Kuma ──────── Service health monitoring (auto-provisioned)
@@ -189,9 +189,17 @@ External apps (connect via 'proxy' network):
 ### Observability
 
 - **Grafana** dashboards with Loki, Prometheus, and Tempo pre-configured as datasources
-- **Prometheus** scrapes 6 targets (node-exporter, Caddy, Loki, Grafana, Promtail, Tempo) every 30s
+- **Prometheus** scrapes 7 targets (node-exporter, Caddy, Loki, Grafana, Promtail, Tempo, self) every 30s
 - **Loki + Promtail** centralized logging — auto-discovers containers with `monitoring=true` label via Docker Socket Proxy
-- **Tempo** distributed tracing — receives OTLP on gRPC (4317) and HTTP (4318)
+- **Tempo** distributed tracing — receives OTLP on gRPC (4317) and HTTP (4318), container-internal only. To send traces from your app, add it to the `monitoring` network and configure:
+
+  ```yaml
+  environment:
+    - OTEL_EXPORTER_OTLP_ENDPOINT=http://gateway-tempo:4317
+  networks:
+    - monitoring
+  ```
+
 - **PII redaction** — IP addresses and email addresses scrubbed before Loki ingestion
 
 ### Alerting + Monitoring
@@ -246,6 +254,7 @@ The DNS wildcard already resolves `myapp.home.lab` — no DNS changes needed.
 | `make up` | Start gateway (CoreDNS + Caddy + monitoring, OS-aware) |
 | `make down` | Stop all services |
 | `make generate` | Generate DNS + Caddy config from templates |
+| `make dry-run` | Preview what `make up` would do (no deployment) |
 | `make test-dns` | Test DNS resolution |
 | `make test` | Run offline generation tests |
 | `make test-smoke` | Run stack smoke tests (requires running stack) |

@@ -46,9 +46,17 @@ services:
       - /tmp
     ports:
       - "${TAILSCALE_IP}:443:443"
+      - "${TAILSCALE_IP}:80:80"
     environment:
       - CADDY_AUTH_USER=${CADDY_AUTH_USER:-}
       - CADDY_AUTH_PASS_HASH=${CADDY_AUTH_PASS_HASH:-}
+      - NILES_UPSTREAM=${NILES_UPSTREAM:-niles_core:8000}
+      - PULSEBASE_UPSTREAM=${PULSEBASE_UPSTREAM:-pulsebase-api:8000}
+      - VIKUNJA_UPSTREAM=${VIKUNJA_UPSTREAM:-vikunja:3456}
+      - WHATSAPP_UPSTREAM=${WHATSAPP_UPSTREAM:-evolution_api:8080}
+      - UPTIME_UPSTREAM=${UPTIME_UPSTREAM:-gateway-uptime:3001}
+      - GRAFANA_UPSTREAM=${GRAFANA_UPSTREAM:-gateway-grafana:3000}
+      - PROMETHEUS_UPSTREAM=${PROMETHEUS_UPSTREAM:-prometheus:9090}
     volumes:
       - ./Caddyfile:/etc/caddy/Caddyfile:ro
       - caddy_data:/data
@@ -95,7 +103,9 @@ services:
     volumes:
       - ./monitoring/loki-config.yml:/etc/loki/local-config.yml:ro
       - loki-data:/loki
-    command: -config.file=/etc/loki/local-config.yml
+    command:
+      - "-config.file=/etc/loki/local-config.yml"
+      - "-limits.retention-period=${LOKI_RETENTION_PERIOD:-336h}"
     networks:
       - monitoring
     labels:
@@ -103,6 +113,7 @@ services:
       - "com.centurylinklabs.watchtower.enable=true"
     # Loki 3.7.2 is distroless (no shell, no wget) — health check not possible via exec.
     # Rely on depends_on + start_period for downstream services instead.
+    stop_grace_period: 30s
     deploy:
       resources:
         limits:
@@ -227,6 +238,7 @@ services:
       timeout: 5s
       retries: 3
       start_period: 15s
+    stop_grace_period: 30s
     deploy:
       resources:
         limits:
@@ -282,6 +294,9 @@ services:
         max-size: "5m"
         max-file: "2"
 
+  # Tempo: distributed tracing — receives OTLP on gRPC (4317) and HTTP (4318)
+  # Note: OTLP ports are container-internal only (not host-exposed).
+  # To send traces, connect from the 'monitoring' Docker network.
   tempo:
     image: grafana/tempo:2.7.2@sha256:4b0277a9b572a4b1fa43b01468e58911ec214dd69d033f2cd476596d14de9fe3
     container_name: gateway-tempo
@@ -303,6 +318,12 @@ services:
     labels:
       - "monitoring=true"
       - "com.centurylinklabs.watchtower.enable=true"
+    healthcheck:
+      test: ["CMD-SHELL", "wget -qO- http://localhost:3200/ready || exit 1"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 10s
     deploy:
       resources:
         limits:
@@ -331,8 +352,8 @@ services:
       - prometheus-data:/prometheus
     command:
       - "--config.file=/etc/prometheus/prometheus.yml"
-      - "--storage.tsdb.retention.time=30d"
-      - "--storage.tsdb.retention.size=500MB"
+      - "--storage.tsdb.retention.time=${PROMETHEUS_RETENTION_TIME:-30d}"
+      - "--storage.tsdb.retention.size=${PROMETHEUS_RETENTION_SIZE:-500MB}"
     depends_on:
       node-exporter:
         condition: service_healthy
@@ -347,6 +368,7 @@ services:
       timeout: 5s
       retries: 3
       start_period: 10s
+    stop_grace_period: 30s
     deploy:
       resources:
         limits:
@@ -426,6 +448,12 @@ services:
     labels:
       - "monitoring=true"
       - "com.centurylinklabs.watchtower.enable=true"
+    healthcheck:
+      test: ["CMD-SHELL", "test -f /proc/1/status"]
+      interval: 60s
+      timeout: 5s
+      retries: 3
+      start_period: 30s
     deploy:
       resources:
         limits:
