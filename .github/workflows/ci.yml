@@ -68,8 +68,14 @@ jobs:
         run: DOMAIN=home.lab envsubst '$DOMAIN' < Caddyfile.tmpl > Caddyfile
 
       - name: Validate Caddyfile syntax
+        env:
+          CADDY_AUTH_USER: admin
+          # nosemgrep: generic.secrets.security.detected-bcrypt-hash.detected-bcrypt-hash
+          CADDY_AUTH_PASS_HASH: '$2a$14$0cs/bgKwnjlhTz5C52qJNeGRXaQFYs0ie0cdMgE5ybSTHiuDSaspy'
         run: |
           docker run --rm \
+            -e CADDY_AUTH_USER \
+            -e CADDY_AUTH_PASS_HASH \
             -v "$PWD/Caddyfile:/etc/caddy/Caddyfile:ro" \
             caddy:2-alpine \
             caddy validate --config /etc/caddy/Caddyfile
