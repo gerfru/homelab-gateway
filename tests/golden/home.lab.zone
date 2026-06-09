@@ -1,0 +1,5 @@
+$ORIGIN test.example.
+@   3600 IN SOA  ns.test.example. admin.test.example. (1 3600 1200 604800 300)
+@   3600 IN NS   ns.test.example.
+ns  3600 IN A    100.64.0.1
+*   3600 IN A    100.64.0.1
