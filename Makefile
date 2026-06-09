@@ -1,4 +1,4 @@
-.PHONY: generate up down status logs test-dns clean dns-up dns-down dns-status dns-logs logs-caddy logs-dns check-env
+.PHONY: generate up down status logs test-dns clean dns-up dns-down dns-status dns-logs logs-caddy logs-dns check-env test test-generate test-smoke test-update-golden
 
 include .env
 export DOMAIN TAILSCALE_IP
@@ -129,19 +129,31 @@ logs-caddy:
 
 logs-dns: dns-logs
 
-# --- DNS testing ---
+# --- Testing ---
+
+test: test-generate
+	@echo ""
+	@echo "Offline tests passed. For stack tests: make test-dns test-smoke"
+
+test-generate:
+	@echo "Running template generation tests..."
+	@bash tests/test-generate.sh
 
 test-dns:
-	@echo "Testing DNS resolution for *.$(DOMAIN) via $(TAILSCALE_IP)..."
-	@echo ""
-	@echo "niles.$(DOMAIN):"
-	@dig @$(TAILSCALE_IP) niles.$(DOMAIN) +short
-	@echo "garmin.$(DOMAIN):"
-	@dig @$(TAILSCALE_IP) garmin.$(DOMAIN) +short
-	@echo "vikunja.$(DOMAIN):"
-	@dig @$(TAILSCALE_IP) vikunja.$(DOMAIN) +short
-	@echo "random.$(DOMAIN) (wildcard test):"
-	@dig @$(TAILSCALE_IP) random.$(DOMAIN) +short
+	@echo "Running DNS resolution tests..."
+	@bash tests/test-dns.sh
+
+test-smoke:
+	@echo "Running stack smoke tests..."
+	@bash tests/test-smoke.sh
+
+test-update-golden:
+	@echo "Regenerating golden files..."
+	@DOMAIN=test.example TAILSCALE_IP=100.64.0.1 envsubst '$$DOMAIN' < Caddyfile.tmpl > tests/golden/Caddyfile
+	@DOMAIN=test.example TAILSCALE_IP=100.64.0.1 envsubst '$$DOMAIN $$TAILSCALE_IP' < dns/Corefile.tmpl > tests/golden/Corefile.linux
+	@DOMAIN=test.example TAILSCALE_IP=100.64.0.1 ZONE_FILE=/repo/dns/home.lab.zone envsubst '$$DOMAIN $$TAILSCALE_IP $$ZONE_FILE' < dns/Corefile.macos.tmpl > tests/golden/Corefile.macos
+	@DOMAIN=test.example TAILSCALE_IP=100.64.0.1 envsubst '$$DOMAIN $$TAILSCALE_IP' < dns/home.lab.zone.tmpl > tests/golden/home.lab.zone
+	@echo "Golden files updated in tests/golden/"
 
 # --- Cleanup ---
 
