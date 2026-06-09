@@ -1,4 +1,4 @@
-.PHONY: help generate up down status logs test-dns clean dns-up dns-down dns-status dns-logs logs-caddy logs-dns check-env test test-generate test-smoke test-update-golden
+.PHONY: help generate up down status logs test-dns clean dns-up dns-down dns-status dns-logs logs-caddy logs-dns check-env test test-generate test-pii test-smoke test-update-golden
 
 -include .env
 export DOMAIN TAILSCALE_IP
@@ -164,13 +164,17 @@ logs-dns: dns-logs ## Alias for dns-logs
 
 # --- Testing ---
 
-test: test-generate ## Run offline tests
+test: test-generate test-pii ## Run offline tests
 	@echo ""
 	@echo "Offline tests passed. For stack tests: make test-dns test-smoke"
 
 test-generate: ## Run template golden-file tests
 	@echo "Running template generation tests..."
 	@bash tests/test-generate.sh
+
+test-pii: ## Run PII regex validation tests
+	@echo "Running PII redaction regex tests..."
+	@bash tests/test-pii-regex.sh
 
 test-dns: ## Run DNS resolution tests (requires running stack)
 	@echo "Running DNS resolution tests..."
