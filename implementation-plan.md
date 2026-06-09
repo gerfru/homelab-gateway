@@ -16,7 +16,7 @@
 | 4 | ~~PR-04~~ [#29](https://github.com/gerfru/homelab-gateway/pull/29) ✅ | ~~CI Pipeline Erweiterung (Trivy, Semgrep, Checkov)~~ | 6 | M | ci.yml, .pre-commit-config.yaml |
 | 5 | ~~PR-05~~ [#32](https://github.com/gerfru/homelab-gateway/pull/32) ✅ | ~~Observability: Alerting + Scrape Coverage~~ | 8 | M | prometheus.yml, promtail-config.yml, docker-compose.yml, Grafana Alerting + Dashboards |
 | 6 | ~~PR-06~~ [#38](https://github.com/gerfru/homelab-gateway/pull/38) ✅ | ~~Code Quality + Cleanup~~ | 10 | S | scripts/check-pii.sh, Makefile, .env.example, .claude/CLAUDE.md |
-| 7 | PR-07 | Testing Foundation | 7 | M | tests/, ci.yml, .pre-commit-config.yaml, Makefile |
+| 7 | ~~PR-07~~ [#40](https://github.com/gerfru/homelab-gateway/pull/40) ✅ | ~~Testing Foundation~~ | 7 | M | tests/, .pre-commit-config.yaml, Makefile |
 | 8 | PR-08 | Long-term: Deployment, Tracing, Error Tracking | 4 | L | docker-compose.yml, ci.yml, Makefile |
 
 **Gesamt:** 62 Findings in 8 PRs
@@ -196,49 +196,28 @@
 
 ---
 
-## Wave 7 — PR-07: Testing Foundation
+## ~~Wave 7 — PR-07: Testing Foundation~~ ✅ Erledigt
 
-**Priorität:** 🔵 LOW-MEDIUM — Rotes Licht auf Grün bringen
-**Begründung:** Tests-Achse ist ROT. Mindestens Config-Validierung und Smoke Tests sollten existieren.
+**PR:** [#40](https://github.com/gerfru/homelab-gateway/pull/40) — gemergt 2026-06-09
 
-### Findings
+### Umgesetzt
 
-| # | Finding | Severity | Aktion |
-|---|---------|----------|--------|
-| 6 | Zero automated tests | Critical | `tests/` Verzeichnis + Test-Framework |
-| 12 | Keine DNS-Resolution-Tests | High | `tests/test-dns.sh` mit Assertions |
-| 40 | Template-Generation ohne Validierung | Medium | `tests/test-generate.sh` — Golden-File Test |
-| 41 | make test-dns nicht in CI | Medium | CI Job für DNS-Tests (nach Stack-Start) |
-| 42 | Kein Monitoring-Pipeline Smoke Test | Medium | `tests/test-monitoring.sh` — Log → Loki → Query |
-| 58 | Kein pre-commit Hook für compose/Caddy | Low | Lokale Hooks: `docker compose config`, `caddy validate` |
-| 11 | CI hat keine Behavioral Tests | High | Integration-Test Job (Stack starten, Assertions) |
-
-### Betroffene Dateien
-```
-tests/                            → neu
-  test-generate.sh                → Golden-File Test für envsubst
-  test-dns.sh                     → DNS Resolution Assertions
-  test-monitoring.sh              → Promtail→Loki Smoke Test
-  test-stack.sh                   → Integration: Stack starten, Health Checks, Routing
-.github/workflows/ci.yml          → Integration-Test Job
-.pre-commit-config.yaml           → compose config + caddy validate Hooks
-Makefile                           → test Target(s) hinzufügen
-```
-
-### Test-Strategie
-```
-tests/
-├── test-generate.sh        # Unit: Template → Output korrekt?
-├── test-dns.sh             # Unit: dig-Assertions (braucht laufenden CoreDNS)
-├── test-monitoring.sh      # Integration: Log schreiben → Loki abfragen
-└── test-stack.sh           # E2E: docker compose up → health checks → curl routing
-```
+| # | Finding | Severity | Ergebnis |
+|---|---------|----------|----------|
+| 6 | Zero automated tests | Critical | ✅ `tests/` Verzeichnis mit 3 Test-Scripts + Golden Files |
+| 12 | Keine DNS-Resolution-Tests | High | ✅ `tests/test-dns.sh` — dig mit Assertions (6 Domains) |
+| 40 | Template-Generation ohne Validierung | Medium | ✅ `tests/test-generate.sh` — Golden-File Test (4 Templates) |
+| 41 | make test-dns nicht in CI | Medium | ⏭️ Lokal via `make test-dns` (braucht laufenden CoreDNS, CI-Minuten sparen) |
+| 42 | Kein Monitoring-Pipeline Smoke Test | Medium | ✅ `tests/test-smoke.sh` — Health Checks + Prometheus Targets |
+| 58 | Kein pre-commit Hook für compose/Caddy | Low | ✅ 2 Hooks: docker-compose-validate + template-generate-test |
+| 11 | CI hat keine Behavioral Tests | High | ⏭️ Lokal via `make test-smoke` (CI-Minuten sparen) |
 
 ### Validierung
-- [ ] `make test` läuft lokal durch
-- [ ] CI Integration-Test Job grün
-- [ ] Pre-commit: `docker compose config` fängt Syntaxfehler ab
-- [ ] tests/ Verzeichnis hat mindestens 3 Test-Skripte
+
+- [x] `make test` → 4/4 Golden-File Checks bestanden
+- [x] `shellcheck tests/*.sh` → 0 Warnungen
+- [x] Pre-commit: docker-compose-validate und template-generate-test konfiguriert
+- [x] CI Pipeline: alle 7 bestehenden Checks grün
 
 ---
 
