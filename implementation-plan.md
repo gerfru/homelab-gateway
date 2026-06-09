@@ -15,7 +15,7 @@
 | 3 | ~~PR-03~~ [#28](https://github.com/gerfru/homelab-gateway/pull/28) ✅ | ~~Caddy Template + Config Hygiene~~ | 8 | S | Caddyfile.tmpl, Makefile, docker-compose.yml |
 | 4 | ~~PR-04~~ [#29](https://github.com/gerfru/homelab-gateway/pull/29) ✅ | ~~CI Pipeline Erweiterung (Trivy, Semgrep, Checkov)~~ | 6 | M | ci.yml, .pre-commit-config.yaml |
 | 5 | ~~PR-05~~ [#32](https://github.com/gerfru/homelab-gateway/pull/32) ✅ | ~~Observability: Alerting + Scrape Coverage~~ | 8 | M | prometheus.yml, promtail-config.yml, docker-compose.yml, Grafana Alerting + Dashboards |
-| 6 | PR-06 | Code Quality + Cleanup | 10 | S | scripts/check-pii.sh, Makefile, homelab-overview.json, requirements.txt, loki.yml |
+| 6 | ~~PR-06~~ [#38](https://github.com/gerfru/homelab-gateway/pull/38) ✅ | ~~Code Quality + Cleanup~~ | 10 | S | scripts/check-pii.sh, Makefile, .env.example, .claude/CLAUDE.md |
 | 7 | PR-07 | Testing Foundation | 7 | M | tests/, ci.yml, .pre-commit-config.yaml, Makefile |
 | 8 | PR-08 | Long-term: Deployment, Tracing, Error Tracking | 4 | L | docker-compose.yml, ci.yml, Makefile |
 
@@ -168,45 +168,31 @@
 
 ---
 
-## Wave 6 — PR-06: Code Quality + Cleanup
+## ~~Wave 6 — PR-06: Code Quality + Cleanup~~ ✅ Erledigt
 
-**Priorität:** 🔵 LOW — Hygiene
-**Begründung:** Technische Schulden abbauen, bevor Testing aufgebaut wird.
+**PR:** [#38](https://github.com/gerfru/homelab-gateway/pull/38) — gemergt 2026-06-09
 
-### Findings
+### Umgesetzt
 
-| # | Finding | Severity | Aktion |
-|---|---------|----------|--------|
-| H-02 | Weak Default Credentials in .env.example | High (ISEC) | `changeme` → `CHANGE_ME_BEFORE_DEPLOY` + Makefile-Validierung |
-| H-03 | Makefile: include .env + export leakt Secrets | High (ISEC) | Blanket `export` entfernen, `--env-file` für Docker Compose |
-| 51 | Orphaned requirements.txt | Low | Löschen (kein Python-Code im Repo) |
-| 52 | Bash echo piped to grep | Low | `[[ "$match" =~ $pattern ]]` |
-| 53 | grep ohne -- Separator | Low | `grep -oE -- "$REGEX"` |
-| 54 | Makefile: recursive make call | Low | `$(MAKE)` statt `make` |
-| 55 | .PHONY unvollständig | Low | `logs-caddy logs-dns` hinzufügen |
-| 56 | Grafana datasource uid leer | Low | ✅ Bereits in Wave 5 erledigt (`uid: loki` in loki.yml) |
-| 60 | Uptime Kuma: Major-Version Tag :1 | Low | Spezifisches Semver-Tag neben Digest |
-| 34 | TruffleHog statt gitleaks | Medium | Deviation dokumentieren in CLAUDE.md |
-
-### Betroffene Dateien
-```
-.env.example                                     → Placeholder-Credentials
-Makefile                                          → export entfernen, $(MAKE), .PHONY
-scripts/check-pii.sh                              → Bash-Verbesserungen
-requirements.txt                                  → löschen
-monitoring/grafana/provisioning/datasources/loki.yml → uid: loki
-monitoring/grafana/provisioning/dashboards/json/
-  homelab-overview.json                           → uid-Referenzen
-docker-compose.yml                                → Uptime Kuma Image-Tag
-CLAUDE.md                                         → Deviation: TruffleHog statt gitleaks
-```
+| # | Finding | Severity | Ergebnis |
+|---|---------|----------|----------|
+| H-02 | Weak Default Credentials in .env.example | High (ISEC) | ✅ `changeme` → `CHANGE_ME_BEFORE_DEPLOY` + `check-env` Guard in Makefile |
+| H-03 | Makefile: include .env + export leakt Secrets | High (ISEC) | ✅ Blanket `export` → `export DOMAIN TAILSCALE_IP`, `--env-file .env` für Docker Compose |
+| 51 | Orphaned requirements.txt | Low | ⏭️ Übersprungen — wird aktiv genutzt (uptime-kuma-api, PyYAML) |
+| 52 | Bash echo piped to grep | Low | ✅ `[[ "$match" =~ $pattern ]]` in check-pii.sh |
+| 53 | grep ohne -- Separator | Low | ✅ `grep -oE -- "$REGEX"` in check-pii.sh |
+| 54 | Makefile: recursive make call | Low | ✅ `@make` → `@$(MAKE)` |
+| 55 | .PHONY unvollständig | Low | ✅ `logs-caddy`, `logs-dns`, `check-env` hinzugefügt |
+| 56 | Grafana datasource uid leer | Low | ✅ Bereits in Wave 5 erledigt |
+| 60 | Uptime Kuma: Major-Version Tag :1 | Low | ⏭️ Übersprungen — bereits `:2` mit SHA256-Digest, Renovate managed |
+| 34 | TruffleHog statt gitleaks | Medium | ✅ Deviation dokumentiert in `.claude/CLAUDE.md` |
 
 ### Validierung
-- [ ] `make up` mit `GF_ADMIN_PASSWORD=changeme` → Fehler
-- [ ] `make up` mit korrektem Passwort → Erfolg
-- [ ] `shellcheck scripts/check-pii.sh` → 0 Warnungen
-- [ ] `requirements.txt` existiert nicht mehr
-- [ ] Grafana Datasource "Loki" hat uid `loki`
+
+- [x] `shellcheck scripts/check-pii.sh` → 0 Warnungen
+- [x] `docker compose config --quiet` → valide
+- [x] `make up` mit Default-Passwörtern → Fehler mit klarer Meldung
+- [x] CI Pipeline: alle 7 Checks grün
 
 ---
 
