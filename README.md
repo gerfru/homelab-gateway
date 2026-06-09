@@ -54,6 +54,19 @@ Browser: https://niles.home.lab
 
 ---
 
+## Prerequisites
+
+| Requirement | Purpose | Install |
+|-------------|---------|---------|
+| Docker + Docker Compose v2 | Container runtime | [docs.docker.com](https://docs.docker.com/engine/install/) |
+| Tailscale | WireGuard mesh VPN | [tailscale.com/download](https://tailscale.com/download) |
+| `envsubst` | Template variable substitution | `apt install gettext-base` (Linux) / pre-installed (macOS) |
+| `dig` | DNS resolution tests | `apt install dnsutils` (Linux) / pre-installed (macOS) |
+| `jq` | JSON parsing in smoke tests | `apt install jq` (Linux) / `brew install jq` (macOS) |
+| `coredns` | Local DNS server (macOS only) | `brew install coredns` (auto-installed by `make dns-up`) |
+
+---
+
 ## Quickstart
 
 ### 1. Configure environment
@@ -66,16 +79,21 @@ Edit `.env`:
 ```bash
 TAILSCALE_IP=100.x.x.x                        # tailscale ip -4
 DOMAIN=home.lab
-GF_ADMIN_USER=admin
-GF_ADMIN_PASSWORD=<strong-password>
 UPTIME_KUMA_USERNAME=admin
 UPTIME_KUMA_PASSWORD=<strong-password>
 
-# Optional: basicauth for prometheus.home.lab and metrics.home.lab
+# Recommended: basicauth for prometheus.home.lab and metrics.home.lab
 # Generate hash: docker run --rm caddy:2-alpine caddy hash-password --plaintext 'yourpassword'
 # IMPORTANT: Wrap hash in single quotes (bcrypt $ signs break Docker Compose interpolation)
-# CADDY_AUTH_USER=admin
-# CADDY_AUTH_PASS_HASH='$2a$14$...'
+CADDY_AUTH_USER=admin
+CADDY_AUTH_PASS_HASH='$2a$14$...'
+```
+
+Create Grafana admin credentials (stored as Docker Secrets):
+```bash
+mkdir -p secrets
+echo -n "admin" > secrets/gf_admin_user
+echo -n "<strong-password>" > secrets/gf_admin_password
 ```
 
 ### 2. Generate config + start
@@ -131,7 +149,7 @@ homelab-gateway
 ├── Tempo ────────────── Distributed tracing (OTLP gRPC + HTTP)
 ├── node-exporter ────── System metrics (CPU, RAM, disk, network)
 ├── Uptime Kuma ──────── Service health monitoring (auto-provisioned)
-├── Watchtower ───────── Container auto-updates (daily 4 AM, label opt-in)
+├── Watchtower ───────── Container update monitoring (daily 4 AM, notify-only)
 └── Docker Socket Proxy  Read-only Docker API for Promtail
 
 External apps (connect via 'proxy' network):
@@ -178,7 +196,7 @@ External apps (connect via 'proxy' network):
 
 - **Grafana Unified Alerting** — 5 rules (HighCPU, HighMemory, DiskAlmostFull, TargetDown, HighErrorRate) with webhook notifications
 - **Uptime Kuma** — auto-provisioned monitors from Caddyfile subdomains via `./scripts/setup-uptime-monitors.sh`
-- **Watchtower** — daily container auto-updates at 4 AM (label-based opt-in, not on security-critical services)
+- **Watchtower** — daily container update checks at 4 AM (monitor-only, notifies but does not auto-apply)
 
 ---
 
