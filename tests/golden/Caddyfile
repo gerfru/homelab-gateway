@@ -5,15 +5,28 @@
 	}
 }
 
-(security_headers) {
+(common_security) {
 	header {
 		X-Content-Type-Options nosniff
 		X-Frame-Options DENY
 		Referrer-Policy strict-origin-when-cross-origin
-		Permissions-Policy "camera=(), microphone=(), geolocation=()"
+		Permissions-Policy "camera=(), microphone=(), geolocation=(), payment=(), usb=(), bluetooth=()"
 		Strict-Transport-Security "max-age=31536000; includeSubDomains"
-		Content-Security-Policy "default-src 'self'; script-src 'self' 'unsafe-inline' 'unsafe-eval'; style-src 'self' 'unsafe-inline'; img-src 'self' data: https:; font-src 'self' data:; connect-src 'self' wss: https:; frame-ancestors 'none'"
 		-Server
+	}
+}
+
+(security_headers) {
+	import common_security
+	header {
+		Content-Security-Policy "default-src 'self'; script-src 'self'; style-src 'self'; img-src 'self' data:; font-src 'self'; connect-src 'self'; frame-ancestors 'none'"
+	}
+}
+
+(security_headers_relaxed) {
+	import common_security
+	header {
+		Content-Security-Policy "default-src 'self'; script-src 'self' 'unsafe-inline' 'unsafe-eval'; style-src 'self' 'unsafe-inline'; img-src 'self' data: https:; font-src 'self' data:; connect-src 'self' wss: https:; frame-ancestors 'none'"
 	}
 }
 
@@ -60,7 +73,7 @@ whatsapp.test.example {
 # Uptime Kuma (Status Page)
 status.test.example {
 	tls internal
-	import security_headers
+	import security_headers_relaxed
 	import common_log
 	reverse_proxy gateway-uptime:3001
 }
@@ -68,7 +81,7 @@ status.test.example {
 # Grafana (Logs)
 logs.test.example {
 	tls internal
-	import security_headers
+	import security_headers_relaxed
 	import common_log
 	reverse_proxy gateway-grafana:3000
 }

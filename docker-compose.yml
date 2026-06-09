@@ -120,6 +120,8 @@ services:
     restart: unless-stopped
     security_opt:
       - no-new-privileges:true
+    cap_drop:
+      - ALL
     read_only: true
     tmpfs:
       - /run
@@ -189,11 +191,14 @@ services:
     image: grafana/grafana:13.0.2@sha256:5dad0df181cb644a14e13617b913b261a54f7d4fd4510721dba420929f35bea2
     container_name: gateway-grafana
     restart: unless-stopped
-    user: "472:0"
+    user: "472:472"
     security_opt:
       - no-new-privileges:true
     cap_drop:
       - ALL
+    read_only: true
+    tmpfs:
+      - /tmp
     environment:
       - GF_AUTH_ANONYMOUS_ENABLED=false
       - GF_SECURITY_ADMIN_USER__FILE=/run/secrets/gf_admin_user
@@ -239,6 +244,8 @@ services:
     image: prom/node-exporter:v1.11.1@sha256:e9cff4fc67b1818f8c97adb115b9f12c9a54b533de86765d4a0effc01b357205
     container_name: gateway-node-exporter
     restart: unless-stopped
+    # ACCEPTED RISK: Host PID namespace required for accurate process metrics.
+    # Mitigations: read_only filesystem, cap_drop ALL, no-new-privileges.
     pid: host
     security_opt:
       - no-new-privileges:true
@@ -359,9 +366,14 @@ services:
       - no-new-privileges:true
     cap_drop:
       - ALL
+    # ACCEPTED RISK: SETGID/SETUID required for Uptime Kuma's internal
+    # user-switch from root to non-root during startup.
     cap_add:
       - SETGID
       - SETUID
+    read_only: true
+    tmpfs:
+      - /tmp
     volumes:
       - uptime-kuma-data:/app/data
     networks:
@@ -405,6 +417,9 @@ services:
       - WATCHTOWER_NO_STARTUP_MESSAGE=true
       - WATCHTOWER_MONITOR_ONLY=true
     volumes:
+      # ACCEPTED RISK: Docker socket access required for image update checks.
+      # Mitigations: WATCHTOWER_MONITOR_ONLY=true (no auto-updates), read_only
+      # filesystem, cap_drop ALL, no-new-privileges.
       - /var/run/docker.sock:/var/run/docker.sock:ro
     networks:
       - monitoring
