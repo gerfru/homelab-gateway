@@ -40,7 +40,7 @@ fi
 is_allowed() {
   local match="$1"
   for pattern in "${ALLOWLIST[@]}"; do
-    if echo "$match" | grep -qE "$pattern"; then
+    if [[ "$match" =~ $pattern ]]; then
       return 0
     fi
   done
@@ -72,7 +72,7 @@ while IFS= read -r line; do
     REGEX="${entry%%|*}"
     DESC="${entry##*|}"
 
-    MATCHES=$(echo "$line" | grep -oE "$REGEX" 2>/dev/null || true)
+    MATCHES=$(echo "$line" | grep -oE -- "$REGEX" 2>/dev/null || true)
     if [[ -n "$MATCHES" ]]; then
       while IFS= read -r match; do
         [[ -z "$match" ]] && continue
