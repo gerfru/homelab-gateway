@@ -62,6 +62,9 @@ check-env: ## Verify .env configuration
 	@if ! grep -qE '^CADDY_AUTH_USER=' .env || ! grep -qE '^CADDY_AUTH_PASS_HASH=' .env; then \
 		echo "WARNING: CADDY_AUTH not set — Prometheus and metrics subdomains will be unprotected."; \
 	fi
+	@if ! grep -qE '^ALERTING_WEBHOOK_URL=' .env || grep -qE '^ALERTING_WEBHOOK_URL=https://your-webhook-url' .env; then \
+		echo "WARNING: ALERTING_WEBHOOK_URL not configured — Grafana alerts will not be delivered."; \
+	fi
 
 up: check-env generate dns-up ## Start the full gateway stack
 	@echo "Starting Caddy..."

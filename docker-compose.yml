@@ -99,6 +99,7 @@ services:
     networks:
       - monitoring
     labels:
+      - "monitoring=true"
       - "com.centurylinklabs.watchtower.enable=true"
     # Loki 3.7.2 is distroless (no shell, no wget) — health check not possible via exec.
     # Rely on depends_on + start_period for downstream services instead.
@@ -161,6 +162,7 @@ services:
     volumes:
       - ./monitoring/promtail-config.yml:/etc/promtail/config.yml:ro
       - /var/lib/docker/containers:/var/lib/docker/containers:ro
+      - promtail-positions:/promtail
     command: -config.file=/etc/promtail/config.yml
     depends_on:
       socket-proxy:
@@ -292,6 +294,7 @@ services:
     networks:
       - monitoring
     labels:
+      - "monitoring=true"
       - "com.centurylinklabs.watchtower.enable=true"
     deploy:
       resources:
@@ -318,7 +321,6 @@ services:
       - /tmp
     volumes:
       - ./monitoring/prometheus.yml:/etc/prometheus/prometheus.yml:ro
-      - ./monitoring/alert-rules.yml:/etc/prometheus/alert-rules.yml:ro
       - prometheus-data:/prometheus
     command:
       - "--config.file=/etc/prometheus/prometheus.yml"
@@ -406,6 +408,9 @@ services:
       - /var/run/docker.sock:/var/run/docker.sock:ro
     networks:
       - monitoring
+    labels:
+      - "monitoring=true"
+      - "com.centurylinklabs.watchtower.enable=true"
     deploy:
       resources:
         limits:
@@ -425,6 +430,7 @@ volumes:
   prometheus-data:
   uptime-kuma-data:
   tempo-data:
+  promtail-positions:
 
 networks:
   proxy:
