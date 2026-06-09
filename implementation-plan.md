@@ -178,7 +178,7 @@
 |---|---------|----------|----------|
 | H-02 | Weak Default Credentials in .env.example | High (ISEC) | ✅ `changeme` → `CHANGE_ME_BEFORE_DEPLOY` + `check-env` Guard in Makefile |
 | H-03 | Makefile: include .env + export leakt Secrets | High (ISEC) | ✅ Blanket `export` → `export DOMAIN TAILSCALE_IP`, `--env-file .env` für Docker Compose |
-| 51 | Orphaned requirements.txt | Low | ⏭️ Übersprungen — wird aktiv genutzt (uptime-kuma-api, PyYAML) |
+| 51 | Orphaned requirements.txt | Low | ✅ Entfernt — kein Python im Repo (Uptime-Kuma-Script in Bash umgeschrieben) |
 | 52 | Bash echo piped to grep | Low | ✅ `[[ "$match" =~ $pattern ]]` in check-pii.sh |
 | 53 | grep ohne -- Separator | Low | ✅ `grep -oE -- "$REGEX"` in check-pii.sh |
 | 54 | Makefile: recursive make call | Low | ✅ `@make` → `@$(MAKE)` |
