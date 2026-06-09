@@ -271,7 +271,7 @@ services:
         max-file: "2"
 
   tempo:
-    image: grafana/tempo:2.7.2
+    image: grafana/tempo:2.10.6@sha256:6ea351a2186822a044d5e326ed4c7a43d019378e4c033c271b89584216db03e7
     container_name: gateway-tempo
     restart: unless-stopped
     read_only: true
