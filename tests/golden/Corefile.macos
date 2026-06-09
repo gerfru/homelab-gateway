@@ -1,3 +1,4 @@
+# GENERATED FILE — DO NOT EDIT (source: dns/Corefile.macos.tmpl)
 test.example:53 {
     bind 100.64.0.1
     file /repo/dns/home.lab.zone
