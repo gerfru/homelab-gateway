@@ -63,6 +63,17 @@ check-env: ## Verify .env configuration
 		echo '  echo -n "your-password" > secrets/gf_admin_password'; \
 		exit 1; \
 	fi
+	@if [ ! -f secrets/gitea_db_password ] || [ ! -f secrets/gitea_admin_password ]; then \
+		echo "ERROR: Gitea secrets missing. Create them:"; \
+		echo "  mkdir -p secrets"; \
+		echo '  echo -n "your-db-password" > secrets/gitea_db_password'; \
+		echo '  echo -n "your-admin-password" > secrets/gitea_admin_password'; \
+		exit 1; \
+	fi
+	@if [ ! -f secrets/renovate_token ]; then \
+		echo "WARNING: secrets/renovate_token missing — Renovate will not work."; \
+		echo "  Create a Gitea API token and: echo -n 'token' > secrets/renovate_token"; \
+	fi
 	@if ! grep -qE '^CADDY_AUTH_USER=' .env || ! grep -qE '^CADDY_AUTH_PASS_HASH=' .env; then \
 		echo "WARNING: CADDY_AUTH not set — Prometheus and metrics subdomains will be unprotected."; \
 	fi
@@ -108,6 +119,7 @@ else
 endif
 	@echo ""
 	@echo "Gateway running on $(DOMAIN):"
+	@echo "  https://gitea.$(DOMAIN)       Gitea (Git hosting)"
 	@echo "  https://logs.$(DOMAIN)        Grafana (dashboards, alerts)"
 	@echo "  https://status.$(DOMAIN)      Uptime Kuma (monitoring)"
 	@echo "  https://prometheus.$(DOMAIN)  Prometheus (metrics)"
@@ -242,7 +254,7 @@ test-update-golden: ## Regenerate golden test files
 
 # --- Backup / Restore ---
 
-BACKUP_VOLUMES := caddy_data caddy_config loki-data grafana-data prometheus-data uptime-kuma-data tempo-data promtail-positions
+BACKUP_VOLUMES := caddy_data caddy_config loki-data grafana-data prometheus-data uptime-kuma-data tempo-data promtail-positions gitea-data gitea-repos gitea-db-data
 
 backup: ## Backup all Docker volumes to backups/
 	@mkdir -p backups
