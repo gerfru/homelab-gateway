@@ -8,12 +8,23 @@ Place Docker Secret files here (one value per file, no trailing newline).
 |------|---------|
 | `gf_admin_user` | Grafana admin username |
 | `gf_admin_password` | Grafana admin password |
+| `gitea_db_password` | Gitea PostgreSQL database password |
+| `gitea_admin_password` | Gitea admin user password |
+| `renovate_token` | Gitea API token for Renovate Bot (optional) |
 
 ## Setup
 
 ```bash
+# Grafana
 echo -n "admin" > secrets/gf_admin_user
 echo -n "your-strong-password" > secrets/gf_admin_password
+
+# Gitea
+echo -n "your-db-password" > secrets/gitea_db_password
+echo -n "your-admin-password" > secrets/gitea_admin_password
+
+# Renovate (create a Gitea API token after first Gitea login)
+echo -n "your-gitea-api-token" > secrets/renovate_token
 ```
 
 ## Migration from .env
