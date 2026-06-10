@@ -4,8 +4,8 @@
 
 **Your infrastructure. Your network. One `make up`.**
 
-A self-hosted reverse proxy, DNS, and full observability stack for Tailscale homelabs —
-CoreDNS, Caddy, Grafana, Prometheus, Loki, Tempo, and Uptime Kuma in a single Docker Compose.
+A self-hosted reverse proxy, DNS, Git hosting, and full observability stack for Tailscale homelabs —
+CoreDNS, Caddy, Gitea, Grafana, Prometheus, Loki, Tempo, and Uptime Kuma in a single Docker Compose.
 
 ![Docker](https://img.shields.io/badge/Docker-Compose-2496ED?style=flat-square&logo=docker&logoColor=white)
 ![Caddy](https://img.shields.io/badge/Caddy-Reverse%20Proxy-22B638?style=flat-square&logo=caddy&logoColor=white)
@@ -27,7 +27,8 @@ CoreDNS, Caddy, Grafana, Prometheus, Loki, Tempo, and Uptime Kuma in a single Do
 
 One `make up`, and every `*.home.lab` subdomain routes through Caddy with auto-TLS,
 centralized logs flow into Loki, Prometheus scrapes metrics, Tempo collects traces,
-and Uptime Kuma watches it all — accessible only from your Tailscale network.
+Uptime Kuma watches it all, and Gitea hosts your Git repos — accessible only from
+your Tailscale network.
 
 > **Tailscale-only by design.** Nothing binds to `0.0.0.0`. DNS resolves exclusively
 > on your Tailscale IP, Caddy listens only on your Tailscale interface, and every
@@ -89,11 +90,17 @@ CADDY_AUTH_USER=admin
 CADDY_AUTH_PASS_HASH='$2a$14$...'
 ```
 
-Create Grafana admin credentials (stored as Docker Secrets):
+Create Docker Secrets:
 ```bash
 mkdir -p secrets
+
+# Grafana
 echo -n "admin" > secrets/gf_admin_user
 echo -n "<strong-password>" > secrets/gf_admin_password
+
+# Gitea
+echo -n "<db-password>" > secrets/gitea_db_password
+echo -n "<admin-password>" > secrets/gitea_admin_password
 ```
 
 ### 2. Generate config + start
@@ -140,19 +147,25 @@ homelab-gateway
 │                         ├── garmin.home.lab     -> pulsebase-api:8000
 │                         ├── vikunja.home.lab    -> vikunja:3456
 │                         ├── whatsapp.home.lab   -> evolution_api:8080
+│                         ├── gitea.home.lab      -> gitea:3000
 │                         ├── status.home.lab     -> gateway-uptime:3001
 │                         ├── logs.home.lab       -> gateway-grafana:3000
 │                         ├── prometheus.home.lab -> prometheus:9090     (basicauth)
 │                         └── metrics.home.lab    -> localhost:9180      (basicauth)
+├── Gitea ────────────── Git hosting (PostgreSQL backend, push-mirror to GitHub)
+├── PostgreSQL ───────── Gitea database (gitea-db)
 ├── Loki ─────────────── Log aggregation (port 3100, localhost only)
 ├── Promtail ─────────── Log collection via Docker labels
 ├── Grafana ──────────── Dashboards + Unified Alerting
-├── Prometheus ───────── Time-series metrics (7 scrape targets, 30d retention)
+├── Prometheus ───────── Time-series metrics (8 scrape targets, 30d retention)
 ├── Tempo ────────────── Distributed tracing (OTLP gRPC + HTTP)
 ├── node-exporter ────── System metrics (CPU, RAM, disk, network)
 ├── Uptime Kuma ──────── Service health monitoring (auto-provisioned)
 ├── Watchtower ───────── Container update monitoring (daily 4 AM, notify-only)
 └── Docker Socket Proxy  Read-only Docker API for Promtail
+
+Tools (on-demand via 'docker compose --profile tools'):
+└── Renovate ─────────── Automated dependency updates for Gitea repos
 
 External apps (connect via 'proxy' network):
 ├── Niles         (niles_core, evolution_api, vikunja)
@@ -173,8 +186,8 @@ External apps (connect via 'proxy' network):
 
 | Network | Purpose | Used by |
 |---------|---------|---------|
-| `proxy` | Reverse proxy access to app containers | Caddy, Grafana, Uptime Kuma, app services |
-| `monitoring` | Internal observability communication | Loki, Promtail, Prometheus, Grafana, Tempo, Uptime Kuma |
+| `proxy` | Reverse proxy access to app containers | Caddy, Gitea, Grafana, Uptime Kuma, app services |
+| `monitoring` | Internal observability communication | Loki, Promtail, Prometheus, Grafana, Tempo, Uptime Kuma, Gitea, PostgreSQL, Renovate |
 
 ---
 
@@ -186,10 +199,17 @@ External apps (connect via 'proxy' network):
 - **Caddy** HTTPS termination — internal TLS certificates, security headers on every response
 - Add a new service: one Caddyfile block + `docker compose restart caddy` (DNS wildcard already covers it)
 
+### Git Hosting
+
+- **Gitea** lightweight Git server with PostgreSQL backend — self-hosted GitHub alternative
+- **Renovate Bot** automated dependency updates — runs on-demand via `docker compose --profile tools run --rm renovate`
+- **GitHub mirroring** — `scripts/gitea-mirror.sh` auto-configures Gitea push mirrors to GitHub for all repos (daily offsite backup)
+- Volume separation: `gitea-data` (app), `gitea-repos` (source code), `gitea-db-data` (PostgreSQL)
+
 ### Observability
 
 - **Grafana** dashboards with Loki, Prometheus, and Tempo pre-configured as datasources
-- **Prometheus** scrapes 7 targets (node-exporter, Caddy, Loki, Grafana, Promtail, Tempo, self) every 30s
+- **Prometheus** scrapes 8 targets (node-exporter, Caddy, Loki, Grafana, Promtail, Tempo, Gitea, self) every 30s
 - **Loki + Promtail** centralized logging — auto-discovers containers with `monitoring=true` label via Docker Socket Proxy
 - **Tempo** distributed tracing — receives OTLP on gRPC (4317) and HTTP (4318), container-internal only. To send traces from your app, add it to the `monitoring` network and configure:
 
@@ -269,6 +289,8 @@ The DNS wildcard already resolves `myapp.home.lab` — no DNS changes needed.
 | `make restore BACKUP=<file>` | Restore Docker volumes from backup |
 | `make clean` | Stop + remove volumes + generated files |
 | `./scripts/setup-uptime-monitors.sh` | Provision Uptime Kuma monitors from Caddyfile.tmpl |
+| `docker compose --profile tools run --rm renovate` | Run Renovate Bot (dependency updates for all Gitea repos) |
+| `./scripts/gitea-mirror.sh` | Configure GitHub push mirrors for all Gitea repos |
 
 ---
 
@@ -276,8 +298,8 @@ The DNS wildcard already resolves `myapp.home.lab` — no DNS changes needed.
 
 - **Network isolation** — all traffic encrypted via Tailscale WireGuard tunnel; Caddy and CoreDNS bind exclusively to Tailscale IP
 - **HTTPS everywhere** — internal TLS certificates, security headers on all responses (HSTS, CSP, X-Frame-Options)
-- **Authentication** — Grafana login required, Caddy basicauth on Prometheus/metrics subdomains, Loki tenant auth (`X-Scope-OrgID`)
-- **Container hardening** — `no-new-privileges`, `cap_drop: ALL`, `read_only` where possible, all images pinned by SHA256 digest
+- **Authentication** — Grafana login required, Gitea login required (registration disabled by default), Caddy basicauth on Prometheus/metrics subdomains, Loki tenant auth (`X-Scope-OrgID`)
+- **Container hardening** — `no-new-privileges`, `cap_drop: ALL`, `read_only` where possible, all images pinned by SHA256 digest. Exception: PostgreSQL and Gitea require `no-new-privileges` disabled (su-exec/gosu needs setuid for user switching) — documented as accepted risk in docker-compose.yml
 - **Least privilege** — Promtail uses read-only Docker Socket Proxy instead of direct socket mount; Loki only on `127.0.0.1:3100`
 - **PII redaction** — IP addresses and email addresses scrubbed in log pipeline before Loki ingestion
 - **CI pipeline** — YAML lint, ShellCheck, Docker Compose validate, Caddyfile validate, TruffleHog secret scan, Trivy container scan, Semgrep SAST, Checkov IaC scan (9 checks)
@@ -324,11 +346,11 @@ make test-dns && make test-smoke
 
 ## Stack
 
-CoreDNS · Caddy · Grafana · Prometheus · Loki · Promtail · Tempo · node-exporter ·
-Uptime Kuma · Watchtower · Docker Socket Proxy
+CoreDNS · Caddy · Gitea · PostgreSQL · Grafana · Prometheus · Loki · Promtail · Tempo ·
+node-exporter · Uptime Kuma · Watchtower · Docker Socket Proxy (+Renovate on-demand)
 
-Eleven containers — one for DNS, one for HTTPS, nine for observability and operations —
-behind a Tailscale WireGuard mesh.
+Thirteen containers — one for DNS, one for HTTPS, two for Git hosting, nine for
+observability and operations — behind a Tailscale WireGuard mesh.
 
 ---
 

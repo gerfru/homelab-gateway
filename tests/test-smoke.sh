@@ -45,6 +45,8 @@ assert_healthy uptime-kuma
 assert_healthy socket-proxy
 assert_healthy tempo
 assert_healthy watchtower
+assert_healthy gitea
+assert_healthy gitea-db
 
 echo ""
 echo "=== Prometheus Targets ==="
@@ -54,6 +56,7 @@ assert_prom_target loki
 assert_prom_target grafana
 assert_prom_target promtail
 assert_prom_target tempo
+assert_prom_target gitea
 assert_prom_target prometheus
 
 assert_header() {

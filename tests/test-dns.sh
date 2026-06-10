@@ -34,6 +34,7 @@ assert_dns() {
 
 echo "Testing DNS resolution for *.${DOMAIN} via ${TAILSCALE_IP}..."
 echo ""
+assert_dns "gitea.${DOMAIN}" "${TAILSCALE_IP}"
 assert_dns "niles.${DOMAIN}" "${TAILSCALE_IP}"
 assert_dns "garmin.${DOMAIN}" "${TAILSCALE_IP}"
 assert_dns "vikunja.${DOMAIN}" "${TAILSCALE_IP}"
