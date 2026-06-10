@@ -24,8 +24,10 @@ REPO_DIR="$(cd "$SCRIPT_DIR/.." && pwd)"
 
 # Load .env if present
 if [[ -f "$REPO_DIR/.env" ]]; then
+  set -a
   # shellcheck disable=SC1091
-  set -a; source "$REPO_DIR/.env"; set +a
+  source "$REPO_DIR/.env"
+  set +a
 fi
 
 : "${GITEA_URL:=https://gitea.${DOMAIN}}"
