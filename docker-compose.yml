@@ -57,6 +57,7 @@ services:
       - UPTIME_UPSTREAM=${UPTIME_UPSTREAM:-gateway-uptime:3001}
       - GRAFANA_UPSTREAM=${GRAFANA_UPSTREAM:-gateway-grafana:3000}
       - PROMETHEUS_UPSTREAM=${PROMETHEUS_UPSTREAM:-prometheus:9090}
+      - GITEA_UPSTREAM=${GITEA_UPSTREAM:-gitea:3000}
     volumes:
       - ./Caddyfile:/etc/caddy/Caddyfile:ro
       - caddy_data:/data
@@ -420,6 +421,157 @@ services:
         max-size: "5m"
         max-file: "2"
 
+  # --- Git hosting (Gitea + PostgreSQL) ---
+
+  gitea-db:
+    image: postgres:17-alpine@sha256:979c4379dd698aba0b890599a6104e082035f98ef31d9b9291ec22f2b13059ca
+    container_name: gateway-gitea-db
+    restart: unless-stopped
+    # ACCEPTED RISK: no-new-privileges not set — PostgreSQL entrypoint requires
+    # gosu/su-exec to switch from root to postgres user, which needs setuid.
+    # no-new-privileges blocks setuid transitions entirely.
+    # Mitigations: read_only filesystem, cap_drop ALL + minimal cap_add,
+    # monitoring network only (not reachable from outside), no ports exposed.
+    cap_drop:
+      - ALL
+    cap_add:
+      - CHOWN
+      - FOWNER
+      - SETGID
+      - SETUID
+      - DAC_READ_SEARCH
+    read_only: true
+    tmpfs:
+      - /tmp
+      - /run
+    environment:
+      - POSTGRES_DB=gitea
+      - POSTGRES_USER=gitea
+      - POSTGRES_PASSWORD_FILE=/run/secrets/gitea_db_password
+    secrets:
+      - gitea_db_password
+    volumes:
+      - gitea-db-data:/var/lib/postgresql/data
+    networks:
+      - monitoring
+    labels:
+      - "monitoring=true"
+      - "com.centurylinklabs.watchtower.enable=true"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U gitea"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 10s
+    deploy:
+      resources:
+        limits:
+          memory: 256m
+          cpus: '0.25'
+    logging:
+      driver: json-file
+      options:
+        max-size: "5m"
+        max-file: "2"
+
+  gitea:
+    image: gitea/gitea:1.23@sha256:8b5a98abe52dacbead16eb4179c9abb7c217d523df3a75901343906ae7853357
+    container_name: gateway-gitea
+    restart: unless-stopped
+    # ACCEPTED RISK: no-new-privileges not set, read_only not set.
+    # Gitea entrypoint uses su-exec (setuid) for user switch and writes to
+    # multiple subdirectories under /data at runtime.
+    # Mitigations: cap_drop ALL + minimal cap_add, proxy + monitoring networks only.
+    cap_drop:
+      - ALL
+    cap_add:
+      - CHOWN
+      - FOWNER
+      - SETGID
+      - SETUID
+      - DAC_READ_SEARCH
+    environment:
+      - GITEA__database__DB_TYPE=postgres
+      - GITEA__database__HOST=gitea-db:5432
+      - GITEA__database__NAME=gitea
+      - GITEA__database__USER=gitea
+      - GITEA__database__PASSWD__FILE=/run/secrets/gitea_db_password
+      - GITEA__metrics__ENABLED=true
+      - GITEA__server__ROOT_URL=https://gitea.${DOMAIN}
+      - GITEA__server__SSH_DOMAIN=gitea.${DOMAIN}
+      - GITEA__service__DISABLE_REGISTRATION=true
+      - GITEA__mirror__ENABLED=true
+    secrets:
+      - gitea_db_password
+      - gitea_admin_password
+    volumes:
+      - gitea-data:/data
+      - gitea-repos:/data/git/repositories
+      - /etc/localtime:/etc/localtime:ro
+    depends_on:
+      gitea-db:
+        condition: service_healthy
+    networks:
+      - proxy
+      - monitoring
+    labels:
+      - "monitoring=true"
+      - "com.centurylinklabs.watchtower.enable=true"
+    healthcheck:
+      test: ["CMD-SHELL", "wget -qO- http://localhost:3000/api/healthz || exit 1"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 15s
+    deploy:
+      resources:
+        limits:
+          memory: 512m
+          cpus: '0.50'
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+  renovate:
+    image: renovate/renovate:39@sha256:f2209c61a9c3c8c74ac58eecb5f15ec43651f1ba694aa33493ff2062b90ff4d3
+    container_name: gateway-renovate
+    security_opt:
+      - no-new-privileges:true
+    cap_drop:
+      - ALL
+    read_only: true
+    tmpfs:
+      - /tmp
+    environment:
+      - RENOVATE_PLATFORM=gitea
+      - RENOVATE_ENDPOINT=http://gitea:3000
+      - RENOVATE_TOKEN_FILE=/run/secrets/renovate_token
+      - RENOVATE_AUTODISCOVER=true
+      - LOG_LEVEL=info
+    secrets:
+      - renovate_token
+    depends_on:
+      gitea:
+        condition: service_healthy
+    networks:
+      - monitoring
+    labels:
+      - "com.centurylinklabs.watchtower.enable=true"
+    deploy:
+      resources:
+        limits:
+          memory: 512m
+          cpus: '0.50'
+    logging:
+      driver: json-file
+      options:
+        max-size: "5m"
+        max-file: "2"
+    profiles:
+      - tools
+
   # --- Deployment (monitor-only — notifies about available updates, does not auto-apply) ---
 
   watchtower:
@@ -474,6 +626,9 @@ volumes:
   uptime-kuma-data:
   tempo-data:
   promtail-positions:
+  gitea-data:
+  gitea-repos:
+  gitea-db-data:
 
 networks:
   proxy:
@@ -489,3 +644,9 @@ secrets:
     file: ./secrets/gf_admin_user
   gf_admin_password:
     file: ./secrets/gf_admin_password
+  gitea_db_password:
+    file: ./secrets/gitea_db_password
+  gitea_admin_password:
+    file: ./secrets/gitea_admin_password
+  renovate_token:
+    file: ./secrets/renovate_token

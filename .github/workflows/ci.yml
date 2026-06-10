@@ -43,6 +43,9 @@ jobs:
           mkdir -p secrets
           echo -n "ci-user" > secrets/gf_admin_user
           echo -n "ci-password" > secrets/gf_admin_password
+          echo -n "ci-db-password" > secrets/gitea_db_password
+          echo -n "ci-admin-password" > secrets/gitea_admin_password
+          echo -n "ci-token" > secrets/renovate_token
 
       - name: Validate docker-compose.yml
         run: |
@@ -164,3 +167,29 @@ jobs:
 
       - name: Run PII regex tests
         run: bash tests/test-pii-regex.sh
+
+  # Gate job — single required status check for branch protection.
+  # Add new jobs to the 'needs' list below.
+  ci-ok:
+    name: CI OK (All Green Gate)
+    if: always()
+    needs:
+      - lint
+      - docker-compose-validate
+      - secret-scan
+      - caddyfile-validate
+      - trivy
+      - semgrep
+      - checkov
+      - test-generate
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check all jobs passed
+        run: |
+          results='${{ toJSON(needs.*.result) }}'
+          if echo "$results" | jq -e 'all(. == "success" or . == "skipped")' > /dev/null; then
+            echo "All checks passed"
+          else
+            echo "Some checks failed: $results"
+            exit 1
+          fi

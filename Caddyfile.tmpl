@@ -100,6 +100,14 @@ logs.${DOMAIN} {
 	reverse_proxy {$GRAFANA_UPSTREAM:gateway-grafana:3000}
 }
 
+# Gitea (Git hosting)
+gitea.${DOMAIN} {
+	tls internal
+	import security_headers_relaxed
+	import common_log
+	reverse_proxy {$GITEA_UPSTREAM:gitea:3000}
+}
+
 # Prometheus (Metrics UI) — password protected
 prometheus.${DOMAIN} {
 	tls internal
