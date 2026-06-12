@@ -49,7 +49,7 @@ jobs:
 
       - name: Validate docker-compose.yml
         run: |
-          TAILSCALE_IP=100.0.0.1 \
+          TAILSCALE_IP=100.64.0.1 \
           DOMAIN=home.lab \
           ALERTING_WEBHOOK_URL=http://localhost:9999 \
           docker compose config --quiet
@@ -79,8 +79,7 @@ jobs:
       - name: Validate Caddyfile syntax
         env:
           CADDY_AUTH_USER: admin
-          # nosemgrep: generic.secrets.security.detected-bcrypt-hash.detected-bcrypt-hash
-          CADDY_AUTH_PASS_HASH: '$2a$14$0cs/bgKwnjlhTz5C52qJNeGRXaQFYs0ie0cdMgE5ybSTHiuDSaspy'
+          CADDY_AUTH_PASS_HASH: ${{ secrets.CI_CADDY_PASS_HASH }}
         run: |
           docker run --rm \
             -e CADDY_AUTH_USER \
