@@ -545,14 +545,16 @@ services:
     cap_drop:
       - ALL
     environment:
-      # Use external URL so job containers can reach Gitea via Tailscale
-      - GITEA_INSTANCE_URL=https://gitea.${DOMAIN}
+      # Internal URL: no TLS, reachable from monitoring network directly.
+      # Job containers also run on monitoring network (see act_runner_config.yaml).
+      - GITEA_INSTANCE_URL=http://gitea:3000
       - GITEA_RUNNER_NAME=homelab-runner
       - GITEA_RUNNER_LABELS=ubuntu-latest:docker://ghcr.io/catthehacker/ubuntu:act-22.04
     secrets:
       - act_runner_token
     volumes:
       - act_runner_data:/data
+      - ./monitoring/act_runner_config.yaml:/etc/act_runner/config.yaml:ro
       # Docker socket: required to launch job containers.
       # ACCEPTED RISK: grants equivalent-to-root access on the Docker host.
       - /var/run/docker.sock:/var/run/docker.sock
@@ -563,12 +565,13 @@ services:
         if [ ! -f /data/.runner ]; then
           TOKEN=$$(cat /run/secrets/act_runner_token)
           act_runner register --no-interactive \
+            --config /etc/act_runner/config.yaml \
             --instance "$$GITEA_INSTANCE_URL" \
             --token "$$TOKEN" \
             --name "$$GITEA_RUNNER_NAME" \
             --labels "$$GITEA_RUNNER_LABELS"
         fi
-        exec act_runner daemon
+        exec act_runner daemon --config /etc/act_runner/config.yaml
     depends_on:
       gitea:
         condition: service_healthy
