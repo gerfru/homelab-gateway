@@ -58,12 +58,11 @@ GITEA_URL="${GITEA_URL:-https://gitea.${DOMAIN:-home.lab}}"
 DRY_RUN=false
 
 [[ "${1:-}" == "--dry-run" ]] && DRY_RUN=true
-[[ "$DRY_RUN" == "true" ]] && log() { echo "[dry-run] $*"; }
 
 WORKDIR=$(mktemp -d)
 trap 'rm -rf "$WORKDIR"' EXIT
 
-log()  { echo "[$(date +%H:%M:%S)] $*"; }
+log()  { [[ "$DRY_RUN" == "true" ]] && echo "[dry-run] $*" || echo "[$(date +%H:%M:%S)] $*"; }
 ok()   { echo "[$(date +%H:%M:%S)] ✓ $*"; }
 warn() { echo "[$(date +%H:%M:%S)] ⚠ $*"; }
 
