@@ -12,3 +12,6 @@
 
 # Docker-internal hostnames (not real Tailscale)
 example\.ts\.net
+
+# GitHub/bot no-reply addresses (not personal, safe to commit)
+users\.noreply\.github\.com
