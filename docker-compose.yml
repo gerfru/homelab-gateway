@@ -535,7 +535,7 @@ services:
         max-file: "3"
 
   act-runner:
-    image: gitea/act_runner:0.2.11
+    image: gitea/act_runner:0.6.1@sha256:b5c35d6bdbb9bb25e531230bfc7cc663cb751406cbec90a2a891b85fea54de86
     container_name: gateway-act-runner
     restart: unless-stopped
     # ACCEPTED RISK: Docker socket access required to spawn job containers.
