@@ -27,7 +27,7 @@
 (security_headers_relaxed) {
 	import common_security
 	header {
-		Content-Security-Policy "default-src 'self'; script-src 'self' 'unsafe-inline' 'unsafe-eval'; style-src 'self' 'unsafe-inline'; img-src 'self' data: https:; font-src 'self' data:; connect-src 'self' wss: https:; frame-ancestors 'none'"
+		Content-Security-Policy "default-src 'self'; script-src 'self' 'unsafe-inline' 'unsafe-eval'; style-src 'self' 'unsafe-inline'; img-src 'self' data: https:; media-src 'self' data:; font-src 'self' data:; connect-src 'self' wss: https:; frame-ancestors 'none'"
 	}
 }
 
@@ -53,10 +53,10 @@ http://*.test.example {
 	redir https://{host}{uri} permanent
 }
 
-# Niles AI
+# Niles AI — bringt eigenen nonce-basierten CSP mit (siehe security_headers_app_csp)
 niles.test.example {
 	tls internal
-	import security_headers
+	import security_headers_app_csp
 	import common_log
 	reverse_proxy {$NILES_UPSTREAM:niles_core:8000}
 }
@@ -69,10 +69,10 @@ garmin.test.example {
 	reverse_proxy {$PULSEBASE_UPSTREAM:pulsebase-api:8000}
 }
 
-# Vikunja (Todos)
+# Vikunja (Todos) — Third-Party-App, braucht unsafe-inline für Styles
 vikunja.test.example {
 	tls internal
-	import security_headers
+	import security_headers_relaxed
 	import common_log
 	reverse_proxy {$VIKUNJA_UPSTREAM:vikunja:3456}
 }

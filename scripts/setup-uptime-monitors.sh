@@ -82,7 +82,39 @@ done
 echo ""
 echo "Done: ${CREATED} created, ${SKIPPED} skipped."
 
+# --- Enhanced monitors (keyword checks, specific endpoints) ---
+echo ""
+echo "=== Enhanced Monitors ==="
+
+add_keyword_monitor() {
+  local name="$1" url="$2" keyword="$3"
+  if echo "$EXISTING" | grep -qF "$url"; then
+    echo "  Skip: ${name} (exists)"
+    return
+  fi
+  local safe_name safe_url safe_kw
+  safe_name=$(safe_sql "$name")
+  safe_url=$(safe_sql "$url")
+  safe_kw=$(safe_sql "$keyword")
+  docker exec "$CONTAINER" sqlite3 "$DB_PATH" \
+    "INSERT INTO monitor
+      (name, active, user_id, interval, url, type, method,
+       maxretries, retry_interval, ignore_tls, maxredirects,
+       accepted_statuscodes_json, keyword)
+     VALUES
+      ('${safe_name}', 1, 1, 60, '${safe_url}', 'keyword', 'GET',
+       3, 30, 1, 10, '[\"200-299\"]', '${safe_kw}');"
+  echo "  Created: ${name}"
+  CREATED=$((CREATED + 1))
+}
+
+add_keyword_monitor \
+  "gitea.${DOMAIN} — Health API" \
+  "https://gitea.${DOMAIN}/api/healthz" \
+  "\"pass\""
+
 if [[ $CREATED -gt 0 ]]; then
+  echo ""
   echo "Restarting Uptime Kuma to load new monitors..."
   docker compose restart uptime-kuma
   echo "Uptime Kuma restarted."
