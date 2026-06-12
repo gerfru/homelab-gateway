@@ -11,6 +11,7 @@ Place Docker Secret files here (one value per file, no trailing newline).
 | `gitea_db_password` | Gitea PostgreSQL database password |
 | `gitea_admin_password` | Gitea admin user password |
 | `renovate_token` | Gitea API token for Renovate Bot (optional) |
+| `act_runner_token` | Gitea Actions runner registration token |
 
 ## Setup
 
@@ -25,6 +26,10 @@ echo -n "your-admin-password" > secrets/gitea_admin_password
 
 # Renovate (create a Gitea API token after first Gitea login)
 echo -n "your-gitea-api-token" > secrets/renovate_token
+
+# Gitea Actions Runner registration token
+# Get it: Gitea → Site Administration → Runners → Create Runner Token
+echo -n "your-runner-registration-token" > secrets/act_runner_token
 ```
 
 ## Migration from .env
