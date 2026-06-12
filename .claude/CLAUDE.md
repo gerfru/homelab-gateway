@@ -142,7 +142,7 @@ echo -n "dein-token" > secrets/act_runner_token
 docker compose up -d act-runner
 ```
 
-**Warum `http://gitea:3000` statt `https://gitea.home.lab`:**
+**Warum `http://gitea:3000` statt der externen HTTPS-URL:**
 
 Caddy verwendet `tls internal` (self-signed CA). Der act_runner-Container
 vertraut dieser CA nicht von Haus aus. Loesung: interne URL ohne TLS.
