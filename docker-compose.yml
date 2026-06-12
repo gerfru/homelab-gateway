@@ -500,6 +500,7 @@ services:
       - GITEA__server__SSH_DOMAIN=gitea.${DOMAIN}
       - GITEA__service__DISABLE_REGISTRATION=true
       - GITEA__mirror__ENABLED=true
+      - GITEA__actions__ENABLED=true
     secrets:
       - gitea_db_password
       - gitea_admin_password
@@ -522,6 +523,62 @@ services:
       timeout: 5s
       retries: 3
       start_period: 15s
+    deploy:
+      resources:
+        limits:
+          memory: 512m
+          cpus: '0.50'
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+  act-runner:
+    image: gitea/act_runner:0.2.11
+    container_name: gateway-act-runner
+    restart: unless-stopped
+    # ACCEPTED RISK: Docker socket access required to spawn job containers.
+    # Mitigations: cap_drop ALL, no-new-privileges, registration token via Docker secret.
+    security_opt:
+      - no-new-privileges:true
+    cap_drop:
+      - ALL
+    environment:
+      # Internal URL: no TLS, reachable from monitoring network directly.
+      # Job containers also run on monitoring network (see act_runner_config.yaml).
+      - GITEA_INSTANCE_URL=http://gitea:3000
+      - GITEA_RUNNER_NAME=homelab-runner
+      - GITEA_RUNNER_LABELS=ubuntu-latest:docker://ghcr.io/catthehacker/ubuntu:act-22.04
+    secrets:
+      - act_runner_token
+    volumes:
+      - act_runner_data:/data
+      - ./monitoring/act_runner_config.yaml:/etc/act_runner/config.yaml:ro
+      # Docker socket: required to launch job containers.
+      # ACCEPTED RISK: grants equivalent-to-root access on the Docker host.
+      - /var/run/docker.sock:/var/run/docker.sock
+    entrypoint:
+      - sh
+      - -c
+      - |
+        if [ ! -f /data/.runner ]; then
+          TOKEN=$$(cat /run/secrets/act_runner_token)
+          act_runner register --no-interactive \
+            --config /etc/act_runner/config.yaml \
+            --instance "$$GITEA_INSTANCE_URL" \
+            --token "$$TOKEN" \
+            --name "$$GITEA_RUNNER_NAME" \
+            --labels "$$GITEA_RUNNER_LABELS"
+        fi
+        exec act_runner daemon --config /etc/act_runner/config.yaml
+    depends_on:
+      gitea:
+        condition: service_healthy
+    networks:
+      - monitoring
+    labels:
+      - "com.centurylinklabs.watchtower.enable=true"
     deploy:
       resources:
         limits:
@@ -628,6 +685,7 @@ volumes:
   gitea-data:
   gitea-repos:
   gitea-db-data:
+  act_runner_data:
 
 networks:
   proxy:
@@ -649,3 +707,5 @@ secrets:
     file: ./secrets/gitea_admin_password
   renovate_token:
     file: ./secrets/renovate_token
+  act_runner_token:
+    file: ./secrets/act_runner_token
