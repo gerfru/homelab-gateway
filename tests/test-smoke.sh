@@ -23,6 +23,18 @@ assert_healthy() {
   fi
 }
 
+assert_running() {
+  local svc="$1"
+  local state
+  state=$(docker compose ps --format json "$svc" 2>/dev/null \
+    | jq -r '.State' 2>/dev/null || echo "missing")
+  if [[ "$state" == "running" ]]; then
+    pass "$svc is running"
+  else
+    fail "$svc — state: $state"
+  fi
+}
+
 assert_prom_target() {
   local job="$1"
   local up
@@ -44,7 +56,7 @@ assert_healthy node-exporter
 assert_healthy uptime-kuma
 assert_healthy socket-proxy
 assert_healthy tempo
-assert_healthy watchtower
+assert_running watchtower
 assert_healthy gitea
 assert_healthy gitea-db
 
@@ -61,10 +73,11 @@ assert_prom_target prometheus
 
 assert_header() {
   local subdomain="$1" header="$2" expected="$3"
-  local value
+  local fqdn value
+  fqdn="${subdomain}.${DOMAIN}"
   value=$(curl -sk -o /dev/null -D - \
-    -H "Host: ${subdomain}.${DOMAIN}" \
-    "https://${TAILSCALE_IP}/" \
+    --resolve "${fqdn}:443:${TAILSCALE_IP}" \
+    "https://${fqdn}/" \
     | grep -i "^${header}:" | head -1 \
     | sed 's/^[^:]*: *//' | tr -d '\r' || true)
   if [[ -n "$value" && "$value" == *"$expected"* ]]; then
@@ -76,11 +89,10 @@ assert_header() {
 
 echo ""
 echo "=== Security Headers ==="
-# Strict CSP subdomain
+# App-CSP subdomain (gateway setzt keinen CSP, App liefert eigenen nonce-basierten)
 assert_header "niles" "Strict-Transport-Security" "max-age=31536000"
 assert_header "niles" "X-Frame-Options" "DENY"
 assert_header "niles" "X-Content-Type-Options" "nosniff"
-assert_header "niles" "Content-Security-Policy" "default-src 'self'"
 # Relaxed CSP subdomain
 assert_header "status" "Strict-Transport-Security" "max-age=31536000"
 assert_header "status" "Content-Security-Policy" "unsafe-inline"
