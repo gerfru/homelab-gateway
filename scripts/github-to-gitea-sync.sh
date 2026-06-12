@@ -1,20 +1,42 @@
 #!/usr/bin/env bash
-# Sync all GitHub repos to Gitea (branches + tags, no PR refs).
+# github-to-gitea-sync.sh — Sync all GitHub repos to the local Gitea instance.
 #
-# Clones each GitHub repo and pushes to the local Gitea instance.
-# Creates missing repos on Gitea automatically. Safe to re-run.
+# Pulls every repo from GitHub and pushes branches + tags to Gitea.
+# Missing repos are created automatically with matching visibility.
+# Safe to re-run — existing repos are updated, not recreated.
+#
+# This is the REVERSE direction of gitea-mirror.sh:
+#   GitHub → Gitea  (this script, manual / one-shot)
+#   Gitea  → GitHub (gitea-mirror.sh, automatic push-mirror on commit)
+#
+# Typical use cases:
+#   - Initial import of all GitHub repos into a fresh Gitea instance
+#   - Pulling back GitHub-side changes (release-please commits, merged PRs)
+#   - Recovering Gitea from a backup by re-syncing from GitHub
+#
+# Prerequisites:
+#   - gh CLI installed and authenticated (gh auth login)
+#   - Gitea reachable at GITEA_URL (via Tailscale or local network)
+#   - GITEA_TOKEN with scopes: repository (read+write), user (read)
+#     Create at: https://<your-gitea> → Settings → Applications → Access Tokens
 #
 # Required environment:
-#   GITEA_TOKEN   Gitea API token (Settings → Applications → Access Tokens)
-#                 Scopes: repository (read+write), user (read)
+#   GITEA_TOKEN   Gitea API token
+#   GITEA_USER    Gitea username
+#   GITHUB_USER   GitHub username
 #
-# Optional environment (override defaults):
-#   GITEA_URL     Gitea base URL     (default: https://gitea.${DOMAIN})
-#   GITEA_USER    Gitea username     (default: gerfru)
-#   GITHUB_USER   GitHub username    (default: gerfru)
+# Optional environment (defaults read from .env):
+#   GITEA_URL     Gitea base URL   (default: https://gitea.${DOMAIN})
 #
 # Usage:
-#   GITEA_TOKEN=xxx ./scripts/github-to-gitea-sync.sh
+#   GITEA_TOKEN=xxx ./scripts/github-to-gitea-sync.sh            # sync all
+#   GITEA_TOKEN=xxx ./scripts/github-to-gitea-sync.sh --dry-run  # preview only
+#
+# Notes:
+#   - refs/pull/* (GitHub PR refs) are intentionally skipped — Gitea blocks them
+#   - *.github.io repos are skipped — GitHub Pages is GitHub-specific
+#   - Repo names with dots are renamed (dots → dashes) for Gitea compatibility
+#   - --force push is used to handle rewritten git history
 
 set -euo pipefail
 
@@ -31,8 +53,12 @@ fi
 
 : "${GITEA_TOKEN:?GITEA_TOKEN not set — provide a Gitea API token}"
 GITEA_URL="${GITEA_URL:-https://gitea.${DOMAIN:-home.lab}}"
-GITEA_USER="${GITEA_USER:-gerfru}"
-GITHUB_USER="${GITHUB_USER:-gerfru}"
+: "${GITEA_USER:?GITEA_USER not set — your Gitea username}"
+: "${GITHUB_USER:?GITHUB_USER not set — your GitHub username}"
+DRY_RUN=false
+
+[[ "${1:-}" == "--dry-run" ]] && DRY_RUN=true
+[[ "$DRY_RUN" == "true" ]] && log() { echo "[dry-run] $*"; }
 
 WORKDIR=$(mktemp -d)
 trap 'rm -rf "$WORKDIR"' EXIT
@@ -88,6 +114,12 @@ while IFS= read -r entry; do
   # Gitea doesn't allow dots in repo names — replace with dashes
   gitea_name="${name//./-}"
   [[ "$gitea_name" != "$name" ]] && log "  Renaming for Gitea: ${name} → ${gitea_name}"
+
+  if [[ "$DRY_RUN" == "true" ]]; then
+    log "  Would sync → ${GITEA_URL}/${GITEA_USER}/${gitea_name} (private=${is_private})"
+    success=$((success+1))
+    continue
+  fi
 
   # Create repo on Gitea if it doesn't exist
   if ! gitea_api GET "/repos/${GITEA_USER}/${gitea_name}" -o /dev/null 2>/dev/null; then
