@@ -79,6 +79,12 @@ while IFS= read -r entry; do
 
   log "── ${name} ──"
 
+  # Skip GitHub Pages repos (*.github.io) — they're GitHub-specific
+  if [[ "$name" == *.github.io ]]; then
+    log "  Skipping GitHub Pages repo — not applicable on Gitea"
+    continue
+  fi
+
   # Gitea doesn't allow dots in repo names — replace with dashes
   gitea_name="${name//./-}"
   [[ "$gitea_name" != "$name" ]] && log "  Renaming for Gitea: ${name} → ${gitea_name}"
