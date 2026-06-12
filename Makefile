@@ -1,4 +1,4 @@
-.PHONY: help generate up down status logs test-dns clean dns-up dns-down dns-status dns-logs logs-caddy logs-dns check-env dry-run test test-generate test-pii test-smoke test-update-golden backup restore
+.PHONY: help generate up down status logs test-dns clean dns-up dns-down dns-status dns-logs logs-caddy logs-dns check-env dry-run test test-generate test-pii test-smoke test-update-golden backup restore update-ip
 
 -include .env
 export DOMAIN TAILSCALE_IP
@@ -217,6 +217,9 @@ logs-caddy: ## Live Caddy logs
 	docker compose logs -f caddy
 
 logs-dns: dns-logs ## Alias for dns-logs
+
+update-ip: ## Update TAILSCALE_IP across all services after IP rotation
+	@bash $(REPO_DIR)/scripts/update-ip.sh
 
 # --- Testing ---
 

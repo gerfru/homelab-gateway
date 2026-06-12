@@ -110,9 +110,18 @@ make generate
 make up
 ```
 
-### 3. Configure Tailscale Split DNS (once)
+### 3. Configure DNS (once)
 
-> **Note:** Split DNS configuration requires **admin access** to the Tailscale admin console.
+**macOS (local machine)** — so the Mac Mini itself resolves `*.home.lab`:
+
+```bash
+sudo mkdir -p /etc/resolver
+echo "nameserver $(tailscale ip -4)" | sudo tee /etc/resolver/home.lab
+```
+
+This file must be recreated after every Tailscale IP change. `make update-ip` handles this automatically.
+
+**Other devices on your Tailnet** — requires admin access to the Tailscale admin console:
 
 1. Open https://login.tailscale.com/admin/dns
 2. Under **Nameservers** -> "Add nameserver" -> "Custom"
@@ -285,6 +294,7 @@ The DNS wildcard already resolves `myapp.home.lab` — no DNS changes needed.
 | `make dns-status` | Check if CoreDNS is running |
 | `make check-env` | Verify no default passwords in .env |
 | `make test-update-golden` | Regenerate golden test files |
+| `make update-ip` | Update TAILSCALE_IP across all services after IP rotation |
 | `make backup` | Backup all Docker volumes to `backups/` |
 | `make restore BACKUP=<file>` | Restore Docker volumes from backup |
 | `make clean` | Stop + remove volumes + generated files |
@@ -303,6 +313,43 @@ The DNS wildcard already resolves `myapp.home.lab` — no DNS changes needed.
 - **Least privilege** — Promtail uses read-only Docker Socket Proxy instead of direct socket mount; Loki only on `127.0.0.1:3100`
 - **PII redaction** — IP addresses and email addresses scrubbed in log pipeline before Loki ingestion
 - **CI pipeline** — YAML lint, ShellCheck, Docker Compose validate, Caddyfile validate, TruffleHog secret scan, Trivy container scan, Semgrep SAST, Checkov IaC scan (9 checks)
+
+---
+
+## IP Rotation
+
+Tailscale IPs can change (e.g. after a reinstall or network change). When that happens:
+
+### Step 1 — Update the Mac Mini (automatic)
+
+```bash
+make update-ip
+```
+
+This does everything on the Mac Mini in one step:
+
+1. Reads the current IP via `tailscale ip -4`
+2. Updates `TAILSCALE_IP` in `homelab-gateway/.env` and `PulseBase/env/.env`
+3. Regenerates DNS + Caddy config (`make generate`)
+4. Recreates `/etc/resolver/home.lab` with the new IP (requires sudo)
+5. Reloads CoreDNS + restarts Caddy
+
+### Step 2 — Update Tailscale Split DNS (manual, required for all other devices)
+
+> **Without this step, Windows, iOS, Android and other Tailnet devices cannot resolve `*.home.lab`.**
+
+1. Open [login.tailscale.com/admin/dns](https://login.tailscale.com/admin/dns)
+2. Under **Nameservers** → find the `home.lab` entry
+3. Replace the old IP with the new one (`tailscale ip -4` on the Mac Mini)
+4. Save
+
+Tailscale pushes the change to all connected devices automatically.
+
+### Step 3 — Verify
+
+```bash
+make test-dns && make test-smoke
+```
 
 ---
 
