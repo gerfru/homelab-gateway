@@ -25,6 +25,8 @@ PATTERNS=(
   '\b192\.168\.[0-9]{1,3}\.[0-9]{1,3}\b|Private IP (192.168.x.x)'
   # Real Tailscale MagicDNS hostnames (not example.ts.net)
   '[a-z0-9-]+\.[a-z0-9]+\.ts\.net\b|Tailscale MagicDNS hostname'
+  # Email addresses
+  '[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}|Email address'
 )
 
 # --- Load allowlist ---
