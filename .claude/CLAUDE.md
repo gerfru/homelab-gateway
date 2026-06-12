@@ -129,6 +129,41 @@ via `permissions:` im Workflow-File.
 Die Einstellung ist eine Repo-Setting (nicht im Code sichtbar) — aenderbar unter:
 GitHub → Settings → Actions → General → Workflow permissions.
 
+## Gitea Actions: act_runner
+
+Der `act-runner` Service (`gitea/act_runner`) laeuft als Docker-Container und
+registriert sich beim Start automatisch bei Gitea.
+
+**Wichtiges Setup (einmalig vor erstem Start):**
+
+```bash
+# Token holen: Gitea → Site Administration → Runners → Create Runner Token
+echo -n "dein-token" > secrets/act_runner_token
+docker compose up -d act-runner
+```
+
+**Warum `http://gitea:3000` statt `https://gitea.home.lab`:**
+
+Caddy verwendet `tls internal` (self-signed CA). Der act_runner-Container
+vertraut dieser CA nicht von Haus aus. Loesung: interne URL ohne TLS.
+Job-Container laufen ebenfalls im `monitoring`-Netzwerk (konfiguriert in
+`monitoring/act_runner_config.yaml`), damit sie `http://gitea:3000` direkt
+erreichen koennen.
+
+**Workflow-Kompatibilitaet:**
+
+Gitea Actions liest sowohl `.gitea/workflows/` als auch `.github/workflows/`.
+Bestehende GitHub Actions Workflows laufen ohne Aenderung auch auf Gitea.
+Label-Mapping: `ubuntu-latest` → `ghcr.io/catthehacker/ubuntu:act-22.04`
+(wird beim ersten Job-Run gepullt, ~1.5 GB).
+
+**Registrierung pruefen:**
+
+```bash
+docker logs gateway-act-runner | grep -E "registered|error"
+# Oder: Gitea → Site Administration → Runners
+```
+
 ## Renovate: Ausfuehrung
 
 Renovate laeuft NICHT als Daemon, sondern als einmaliger Run ueber das
