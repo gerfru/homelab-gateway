@@ -106,7 +106,6 @@ services:
       - loki-data:/loki
     command:
       - "-config.file=/etc/loki/local-config.yml"
-      - "-limits.retention-period=${LOKI_RETENTION_PERIOD:-336h}"
     networks:
       - monitoring
     labels:
@@ -590,6 +589,8 @@ services:
       - WATCHTOWER_INCLUDE_STOPPED=false
       - WATCHTOWER_NO_STARTUP_MESSAGE=true
       - WATCHTOWER_MONITOR_ONLY=true
+    tmpfs:
+      - /tmp
     volumes:
       # ACCEPTED RISK: Docker socket access required for image update checks.
       # Mitigations: WATCHTOWER_MONITOR_ONLY=true (no auto-updates), read_only
@@ -601,11 +602,9 @@ services:
       - "monitoring=true"
       - "com.centurylinklabs.watchtower.enable=true"
     healthcheck:
-      test: ["CMD-SHELL", "test -f /proc/1/status"]
-      interval: 60s
-      timeout: 5s
-      retries: 3
-      start_period: 30s
+      # scratch/distroless image has no shell — CMD-SHELL unusable.
+      # Process liveness is guaranteed by restart: unless-stopped.
+      disable: true
     deploy:
       resources:
         limits:

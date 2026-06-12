@@ -35,7 +35,8 @@ Homelab Gateway is designed as a Tailscale-only infrastructure stack. Nothing is
 ### HTTPS & Headers
 
 - Caddy terminates TLS with internal certificates on all subdomains
-- Security headers on every response: HSTS, CSP, X-Frame-Options, X-Content-Type-Options
+- Security headers on every response: HSTS, X-Frame-Options, X-Content-Type-Options
+- CSP either set statically by the gateway (`security_headers` / `security_headers_relaxed`) or passed through from the app (`security_headers_app_csp`) for services with nonce-based CSPs (Niles, PulseBase)
 
 ### Authentication
 
