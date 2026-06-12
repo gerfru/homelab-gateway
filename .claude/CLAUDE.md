@@ -49,6 +49,49 @@ Drei separate Volumes fuer Gitea:
 
 Der Pfad `/data/git/repositories` ist Gitea's Default — NICHT `/data/gitea/repositories`.
 
+## Caddy: Security-Header-Snippets
+
+Drei Snippets — das richtige haengt davon ab ob die App einen eigenen CSP mitbringt:
+
+- `security_headers` — Standard, setzt statischen CSP (`default-src 'self'` etc.)
+- `security_headers_relaxed` — Third-Party-Apps die `unsafe-inline` benoetigen (Vikunja, Grafana, Gitea)
+- `security_headers_app_csp` — Apps mit eigenem nonce-basiertem CSP (Niles, PulseBase); Gateway setzt KEINEN CSP, App-CSP wird unveraendert durchgereicht
+
+`security_headers_app_csp` importiert nur `common_security` (HSTS, X-Frame-Options,
+X-Content-Type-Options, etc.) — kein `Content-Security-Policy` Header vom Gateway.
+
+Grund: Caddys `header`-Direktive wuerde den Upstream-CSP sonst ersetzen, was
+nonce-basierte CSPs bricht.
+
+## Loki: Retention-Konfiguration
+
+Retention wird ausschliesslich ueber `monitoring/loki-config.yml` konfiguriert
+(`limits_config.retention_period`, `compactor.retention_enabled`).
+
+Der fruehher verwendete CLI-Flag `-limits.retention-period` existiert in
+Loki 3.x NICHT mehr — nur Config-File verwenden.
+
+## Watchtower: Healthcheck
+
+Watchtower (`containrrr/watchtower`) ist ein scratch/distroless Image — kein `/bin/sh`.
+`CMD-SHELL`-Healthchecks schlagen daher immer fehl.
+
+Healthcheck ist deaktiviert (`healthcheck: disable: true`). Prozess-Liveness
+wird durch `restart: unless-stopped` sichergestellt.
+
+Im Smoke-Test: `assert_running watchtower` statt `assert_healthy`.
+
+## Smoke-Test: Security-Header-Checks
+
+`assert_header` in `tests/test-smoke.sh` verwendet `--resolve` statt IP-URL + Host-Header:
+
+```bash
+curl -sk --resolve "${fqdn}:443:${TAILSCALE_IP}" "https://${fqdn}/"
+```
+
+Grund: Caddy verwendet `tls internal` (SNI-basiert). curl mit IP-URL sendet
+keinen SNI — TLS-Handshake schlaegt fehl. `--resolve` setzt SNI korrekt.
+
 ## Renovate: Ausfuehrung
 
 Renovate laeuft NICHT als Daemon, sondern als einmaliger Run ueber das
