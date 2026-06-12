@@ -1,5 +1,15 @@
 # homelab-gateway
 
+## Golden Files: Caddyfile-Test
+
+Bei jeder Aenderung an `Caddyfile.tmpl` muessen die Golden Files aktualisiert werden:
+
+```bash
+make test-update-golden
+```
+
+Sonst schlaegt `test-generate` in CI fehl. Golden Files liegen in `tests/golden/`.
+
 ## CI: Secret Scanning
 
 TruffleHog (nicht gitleaks) wird fuer Secret Scanning verwendet — sowohl als
