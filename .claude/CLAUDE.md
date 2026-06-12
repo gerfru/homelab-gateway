@@ -118,6 +118,17 @@ Versionierung: `fix:` → Patch, `feat:` → Minor, `feat!:` / `BREAKING CHANGE:
 
 Workflow: `.github/workflows/release-please.yml`
 
+## GitHub Actions: Default Workflow Permissions
+
+`default_workflow_permissions` ist auf `read` gesetzt, `can_approve_pull_request_reviews` auf `false`.
+
+Grund: Principle of Least Privilege — Workflows erhalten nur die minimal noetige Berechtigung.
+Workflows die Write-Zugriff brauchen (release-please, sbom) deklarieren das explizit
+via `permissions:` im Workflow-File.
+
+Die Einstellung ist eine Repo-Setting (nicht im Code sichtbar) — aenderbar unter:
+GitHub → Settings → Actions → General → Workflow permissions.
+
 ## Renovate: Ausfuehrung
 
 Renovate laeuft NICHT als Daemon, sondern als einmaliger Run ueber das
