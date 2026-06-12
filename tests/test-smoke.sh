@@ -11,6 +11,25 @@ SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 # shellcheck disable=SC1091
 source "$SCRIPT_DIR/lib.sh"
 
+# Wait for all containers with a healthcheck to reach healthy/running state
+echo "Waiting for stack to be ready (max 90s)..."
+WAIT_SERVICES="caddy grafana prometheus node-exporter uptime-kuma socket-proxy tempo gitea gitea-db"
+DEADLINE=$(( $(date +%s) + 90 ))
+for svc in $WAIT_SERVICES; do
+  while true; do
+    state=$(docker compose ps --format json "$svc" 2>/dev/null \
+      | jq -r '.Health // .State' 2>/dev/null || echo "missing")
+    [[ "$state" == "healthy" || "$state" == "running" ]] && break
+    if [[ $(date +%s) -ge $DEADLINE ]]; then
+      echo "  Timeout waiting for $svc (state: $state)" >&2
+      break
+    fi
+    sleep 3
+  done
+done
+echo "Stack ready."
+echo ""
+
 assert_healthy() {
   local svc="$1"
   local health
