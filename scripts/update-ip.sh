@@ -6,7 +6,7 @@
 set -euo pipefail
 
 REPO_DIR="$(cd "$(dirname "$0")/.." && pwd)"
-PULSEBASE_ENV="/Users/gerfru/Documents/PulseBase/env/.env"
+PULSEBASE_ENV="${PULSEBASE_ENV:-$(grep -E '^PULSEBASE_ENV=' "$REPO_DIR/.env" 2>/dev/null | cut -d= -f2)}"
 DRY_RUN=false
 
 [[ "${1:-}" == "--dry-run" ]] && DRY_RUN=true
