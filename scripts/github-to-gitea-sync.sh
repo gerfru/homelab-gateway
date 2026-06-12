@@ -6,13 +6,14 @@
 # Safe to re-run — existing repos are updated, not recreated.
 #
 # This is the REVERSE direction of gitea-mirror.sh:
-#   GitHub → Gitea  (this script, manual / one-shot)
+#   GitHub → Gitea  (this script, manual / scheduled)
 #   Gitea  → GitHub (gitea-mirror.sh, automatic push-mirror on commit)
 #
 # Typical use cases:
 #   - Initial import of all GitHub repos into a fresh Gitea instance
 #   - Pulling back GitHub-side changes (release-please commits, merged PRs)
 #   - Recovering Gitea from a backup by re-syncing from GitHub
+#   - Automated sync after CI succeeds or on a daily schedule
 #
 # Prerequisites:
 #   - gh CLI installed and authenticated (gh auth login)
@@ -29,14 +30,23 @@
 #   GITEA_URL     Gitea base URL   (default: https://gitea.${DOMAIN})
 #
 # Usage:
-#   GITEA_TOKEN=xxx ./scripts/github-to-gitea-sync.sh            # sync all
-#   GITEA_TOKEN=xxx ./scripts/github-to-gitea-sync.sh --dry-run  # preview only
+#   ./scripts/github-to-gitea-sync.sh                # sync all repos (manual)
+#   ./scripts/github-to-gitea-sync.sh --dry-run      # preview only, no changes
+#   ./scripts/github-to-gitea-sync.sh --if-ci-passed # sync only if CI passed on main since last sync
+#   ./scripts/github-to-gitea-sync.sh --if-new       # sync only if any repo has new pushes
+#
+# Scheduling (add to crontab with: crontab -e):
+#   # Sync within ~30min of a successful CI run on homelab-gateway main:
+#   */30 * * * * cd /path/to/homelab-gateway && ./scripts/github-to-gitea-sync.sh --if-ci-passed >> /tmp/gitea-sync.log 2>&1
+#   # Daily hard sync at 03:00 — catches repos without CI and ensures max 24h lag:
+#   0 3 * * * cd /path/to/homelab-gateway && ./scripts/github-to-gitea-sync.sh --if-new >> /tmp/gitea-sync.log 2>&1
 #
 # Notes:
 #   - refs/pull/* (GitHub PR refs) are intentionally skipped — Gitea blocks them
 #   - *.github.io repos are skipped — GitHub Pages is GitHub-specific
 #   - Repo names with dots are renamed (dots → dashes) for Gitea compatibility
 #   - --force push is used to handle rewritten git history
+#   - Last sync timestamp is stored at ~/.cache/github-to-gitea-last-sync
 
 set -euo pipefail
 
@@ -55,9 +65,21 @@ fi
 GITEA_URL="${GITEA_URL:-https://gitea.${DOMAIN:-home.lab}}"
 : "${GITEA_USER:?GITEA_USER not set — your Gitea username}"
 : "${GITHUB_USER:?GITHUB_USER not set — your GitHub username}"
-DRY_RUN=false
 
-[[ "${1:-}" == "--dry-run" ]] && DRY_RUN=true
+DRY_RUN=false
+CI_GATED=false
+NEW_GATED=false
+
+for arg in "$@"; do
+  case "$arg" in
+    --dry-run)       DRY_RUN=true ;;
+    --if-ci-passed)  CI_GATED=true ;;
+    --if-new)        NEW_GATED=true ;;
+    *) echo "Unknown flag: $arg"; exit 1 ;;
+  esac
+done
+
+LAST_SYNC_FILE="${HOME}/.cache/github-to-gitea-last-sync"
 
 WORKDIR=$(mktemp -d)
 trap 'rm -rf "$WORKDIR"' EXIT
@@ -74,6 +96,61 @@ gitea_api() {
     "${GITEA_URL}/api/v1${path}" "$@"
 }
 
+# Returns 0 if a new successful CI run on homelab-gateway main has appeared since last sync.
+check_ci_passed() {
+  local last_sync repo latest_success
+  last_sync=$(cat "$LAST_SYNC_FILE" 2>/dev/null || echo "1970-01-01T00:00:00Z")
+  repo="${GITHUB_USER}/homelab-gateway"
+
+  log "CI-gate: checking ${repo} main (last sync: ${last_sync})..."
+
+  latest_success=$(gh run list \
+    --repo "$repo" \
+    --branch main \
+    --status success \
+    --limit 1 \
+    --json updatedAt \
+    --jq '.[0].updatedAt // ""' 2>/dev/null || echo "")
+
+  if [[ -z "$latest_success" ]]; then
+    log "No successful CI runs found on ${repo} main — skipping."
+    return 1
+  fi
+
+  if [[ "$latest_success" > "$last_sync" ]]; then
+    log "New CI success at ${latest_success} — proceeding with sync."
+    return 0
+  else
+    log "No new CI success since last sync — skipping."
+    return 1
+  fi
+}
+
+# Returns 0 if any GitHub repo has been pushed to since last sync.
+check_if_new() {
+  local last_sync newest_push
+  last_sync=$(cat "$LAST_SYNC_FILE" 2>/dev/null || echo "1970-01-01T00:00:00Z")
+
+  log "Checking for new GitHub activity since ${last_sync}..."
+
+  newest_push=$(gh repo list "$GITHUB_USER" --limit 100 \
+    --json pushedAt \
+    --jq 'max_by(.pushedAt) | .pushedAt // ""' 2>/dev/null || echo "")
+
+  if [[ -z "$newest_push" ]]; then
+    log "Could not determine latest push time — skipping."
+    return 1
+  fi
+
+  if [[ "$newest_push" > "$last_sync" ]]; then
+    log "New activity detected (latest push: ${newest_push}) — proceeding with sync."
+    return 0
+  else
+    log "Nothing new since last sync — skipping."
+    return 1
+  fi
+}
+
 # Verify Gitea connection
 log "Testing Gitea API connection at ${GITEA_URL}..."
 http_code=$(curl -s -o /dev/null -w "%{http_code}" \
@@ -85,6 +162,13 @@ if [[ "$http_code" != "200" ]]; then
   exit 1
 fi
 log "Gitea connection OK."
+
+# Smart-sync gate: exit early if nothing warrants a sync
+if [[ "$CI_GATED" == "true" ]]; then
+  check_ci_passed || exit 0
+elif [[ "$NEW_GATED" == "true" ]]; then
+  check_if_new || exit 0
+fi
 
 log "Fetching repo list from GitHub (user: ${GITHUB_USER})..."
 repos_raw=$(gh repo list "$GITHUB_USER" --limit 100 \
@@ -150,3 +234,10 @@ done <<< "$repos_raw"
 
 echo ""
 log "Done. ✓ ${success} synced, ✗ ${failed} failed."
+
+# Record successful sync timestamp (used by --if-ci-passed and --if-new)
+if [[ "$DRY_RUN" != "true" ]]; then
+  mkdir -p "$(dirname "$LAST_SYNC_FILE")"
+  date -u "+%Y-%m-%dT%H:%M:%SZ" > "$LAST_SYNC_FILE"
+  log "Last sync recorded: $(cat "$LAST_SYNC_FILE")"
+fi
