@@ -344,6 +344,20 @@ make test-dns && make test-smoke
 
 ---
 
+## Releases
+
+Releases are created **automatically** by [release-please](https://github.com/googleapis/release-please-action) on every push to `main`. No manual tagging needed.
+
+**How it works:**
+
+1. Merge a PR into `main` using [Conventional Commits](https://www.conventionalcommits.org/) (`fix:`, `feat:`, `chore:`, etc.)
+2. release-please opens or updates a "Release PR" that bumps the version and updates the changelog
+3. Merge the Release PR → a GitHub Release + Git tag are created automatically
+
+**Version bumps:** `fix:` → patch, `feat:` → minor, `feat!:` / `BREAKING CHANGE:` → major.
+
+---
+
 ## Stack
 
 CoreDNS · Caddy · Gitea · PostgreSQL · Grafana · Prometheus · Loki · Promtail · Tempo ·
