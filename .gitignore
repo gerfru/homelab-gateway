@@ -5,3 +5,5 @@ dns/home.lab.zone
 secrets/*
 !secrets/README.md
 backups/
+.claude/settings.json
+.claude/settings.local.json
