@@ -1,0 +1,274 @@
+{
+  "uid": "gitea",
+  "title": "Gitea",
+  "tags": ["homelab", "gitea", "prometheus"],
+  "timezone": "browser",
+  "refresh": "1m",
+  "time": { "from": "now-6h", "to": "now" },
+  "schemaVersion": 39,
+  "panels": [
+    {
+      "id": 1,
+      "title": "Repositories",
+      "type": "stat",
+      "gridPos": { "h": 3, "w": 4, "x": 0, "y": 0 },
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "targets": [{ "expr": "gitea_repositories", "legendFormat": "Repos", "refId": "A", "instant": true }],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "thresholds": { "steps": [{ "value": null, "color": "blue" }] }
+        }
+      },
+      "options": { "colorMode": "background", "graphMode": "none" }
+    },
+    {
+      "id": 2,
+      "title": "Users",
+      "type": "stat",
+      "gridPos": { "h": 3, "w": 4, "x": 4, "y": 0 },
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "targets": [{ "expr": "gitea_users", "legendFormat": "Users", "refId": "A", "instant": true }],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "thresholds": { "steps": [{ "value": null, "color": "blue" }] }
+        }
+      },
+      "options": { "colorMode": "background", "graphMode": "none" }
+    },
+    {
+      "id": 3,
+      "title": "Organizations",
+      "type": "stat",
+      "gridPos": { "h": 3, "w": 4, "x": 8, "y": 0 },
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "targets": [{ "expr": "gitea_organizations", "legendFormat": "Orgs", "refId": "A", "instant": true }],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "thresholds": { "steps": [{ "value": null, "color": "blue" }] }
+        }
+      },
+      "options": { "colorMode": "background", "graphMode": "none" }
+    },
+    {
+      "id": 4,
+      "title": "Open Issues",
+      "type": "stat",
+      "gridPos": { "h": 3, "w": 4, "x": 12, "y": 0 },
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "targets": [{ "expr": "gitea_issues_open", "legendFormat": "Open", "refId": "A", "instant": true }],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "thresholds": {
+            "steps": [
+              { "value": null, "color": "green" },
+              { "value": 1, "color": "yellow" },
+              { "value": 10, "color": "orange" }
+            ]
+          }
+        }
+      },
+      "options": { "colorMode": "background", "graphMode": "none" }
+    },
+    {
+      "id": 5,
+      "title": "Stars",
+      "type": "stat",
+      "gridPos": { "h": 3, "w": 4, "x": 16, "y": 0 },
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "targets": [{ "expr": "gitea_stars", "legendFormat": "Stars", "refId": "A", "instant": true }],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "thresholds": { "steps": [{ "value": null, "color": "blue" }] }
+        }
+      },
+      "options": { "colorMode": "background", "graphMode": "none" }
+    },
+    {
+      "id": 6,
+      "title": "Mirrors",
+      "type": "stat",
+      "gridPos": { "h": 3, "w": 4, "x": 20, "y": 0 },
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "targets": [{ "expr": "gitea_mirrors", "legendFormat": "Mirrors", "refId": "A", "instant": true }],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "thresholds": { "steps": [{ "value": null, "color": "blue" }] }
+        }
+      },
+      "options": { "colorMode": "background", "graphMode": "none" }
+    },
+    {
+      "id": 7,
+      "title": "Releases",
+      "type": "stat",
+      "gridPos": { "h": 3, "w": 4, "x": 0, "y": 3 },
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "targets": [{ "expr": "gitea_releases", "legendFormat": "Releases", "refId": "A", "instant": true }],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "thresholds": { "steps": [{ "value": null, "color": "blue" }] }
+        }
+      },
+      "options": { "colorMode": "background", "graphMode": "none" }
+    },
+    {
+      "id": 8,
+      "title": "Webhooks",
+      "type": "stat",
+      "gridPos": { "h": 3, "w": 4, "x": 4, "y": 3 },
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "targets": [{ "expr": "gitea_webhooks", "legendFormat": "Webhooks", "refId": "A", "instant": true }],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "thresholds": { "steps": [{ "value": null, "color": "blue" }] }
+        }
+      },
+      "options": { "colorMode": "background", "graphMode": "none" }
+    },
+    {
+      "id": 9,
+      "title": "Comments",
+      "type": "stat",
+      "gridPos": { "h": 3, "w": 4, "x": 8, "y": 3 },
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "targets": [{ "expr": "gitea_comments", "legendFormat": "Comments", "refId": "A", "instant": true }],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "thresholds": { "steps": [{ "value": null, "color": "blue" }] }
+        }
+      },
+      "options": { "colorMode": "background", "graphMode": "none" }
+    },
+    {
+      "id": 10,
+      "title": "Teams",
+      "type": "stat",
+      "gridPos": { "h": 3, "w": 4, "x": 12, "y": 3 },
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "targets": [{ "expr": "gitea_teams", "legendFormat": "Teams", "refId": "A", "instant": true }],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "thresholds": { "steps": [{ "value": null, "color": "blue" }] }
+        }
+      },
+      "options": { "colorMode": "background", "graphMode": "none" }
+    },
+    {
+      "id": 11,
+      "title": "Milestones",
+      "type": "stat",
+      "gridPos": { "h": 3, "w": 4, "x": 16, "y": 3 },
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "targets": [{ "expr": "gitea_milestones", "legendFormat": "Milestones", "refId": "A", "instant": true }],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "thresholds": { "steps": [{ "value": null, "color": "blue" }] }
+        }
+      },
+      "options": { "colorMode": "background", "graphMode": "none" }
+    },
+    {
+      "id": 12,
+      "title": "Closed Issues",
+      "type": "stat",
+      "gridPos": { "h": 3, "w": 4, "x": 20, "y": 3 },
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "targets": [{ "expr": "gitea_issues_closed", "legendFormat": "Closed", "refId": "A", "instant": true }],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "thresholds": { "steps": [{ "value": null, "color": "blue" }] }
+        }
+      },
+      "options": { "colorMode": "background", "graphMode": "none" }
+    },
+    {
+      "id": 13,
+      "title": "Repository & User Growth",
+      "type": "timeseries",
+      "gridPos": { "h": 8, "w": 12, "x": 0, "y": 6 },
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "targets": [
+        { "expr": "gitea_repositories", "legendFormat": "Repositories", "refId": "A" },
+        { "expr": "gitea_users", "legendFormat": "Users", "refId": "B" },
+        { "expr": "gitea_organizations", "legendFormat": "Organizations", "refId": "C" }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "custom": { "lineWidth": 2, "fillOpacity": 10 }
+        }
+      },
+      "options": { "tooltip": { "mode": "multi" } }
+    },
+    {
+      "id": 14,
+      "title": "Issues Over Time",
+      "type": "timeseries",
+      "gridPos": { "h": 8, "w": 12, "x": 12, "y": 6 },
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "targets": [
+        { "expr": "gitea_issues_open", "legendFormat": "Open", "refId": "A" },
+        { "expr": "gitea_issues_closed", "legendFormat": "Closed", "refId": "B" },
+        { "expr": "gitea_milestones", "legendFormat": "Milestones", "refId": "C" }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "custom": { "lineWidth": 2, "fillOpacity": 10 }
+        },
+        "overrides": [
+          { "matcher": { "id": "byName", "options": "Open" }, "properties": [{ "id": "color", "value": { "fixedColor": "orange", "mode": "fixed" } }] },
+          { "matcher": { "id": "byName", "options": "Closed" }, "properties": [{ "id": "color", "value": { "fixedColor": "green", "mode": "fixed" } }] }
+        ]
+      },
+      "options": { "tooltip": { "mode": "multi" } }
+    },
+    {
+      "id": 15,
+      "title": "Memory Usage",
+      "type": "timeseries",
+      "gridPos": { "h": 8, "w": 12, "x": 0, "y": 14 },
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "targets": [
+        { "expr": "go_memstats_alloc_bytes{job=\"gitea\"}", "legendFormat": "Allocated", "refId": "A" },
+        { "expr": "go_memstats_sys_bytes{job=\"gitea\"}", "legendFormat": "System", "refId": "B" }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "bytes",
+          "custom": { "lineWidth": 2, "fillOpacity": 10 }
+        }
+      },
+      "options": { "tooltip": { "mode": "multi" } }
+    },
+    {
+      "id": 16,
+      "title": "Goroutines",
+      "type": "timeseries",
+      "gridPos": { "h": 8, "w": 12, "x": 12, "y": 14 },
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "targets": [
+        { "expr": "go_goroutines{job=\"gitea\"}", "legendFormat": "Goroutines", "refId": "A" }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "custom": { "lineWidth": 2, "fillOpacity": 10 }
+        }
+      },
+      "options": { "tooltip": { "mode": "single" } }
+    }
+  ]
+}
