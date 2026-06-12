@@ -22,6 +22,7 @@ Das ist adaequat fuer ein Single-User-Homelab-Setup:
 - Kein API-Gateway oder Multi-Tenant-Auth noetig
 
 Konfiguration:
+
 - `monitoring/loki-config.yml`: `auth_enabled: true`
 - `monitoring/promtail-config.yml`: `tenant_id: homelab`
 - `monitoring/grafana/provisioning/datasources/loki.yml`: `X-Scope-OrgID: homelab`
@@ -91,6 +92,21 @@ curl -sk --resolve "${fqdn}:443:${TAILSCALE_IP}" "https://${fqdn}/"
 
 Grund: Caddy verwendet `tls internal` (SNI-basiert). curl mit IP-URL sendet
 keinen SNI — TLS-Handshake schlaegt fehl. `--resolve` setzt SNI korrekt.
+
+## Releases: Automatischer Prozess
+
+Releases entstehen automatisch durch release-please nach jedem Merge auf `main`.
+KEIN manuelles Tagging noetig.
+
+Ablauf:
+
+1. PR mit Conventional Commits auf `main` mergen (`fix:`, `feat:`, `chore:` etc.)
+2. release-please oeffnet/aktualisiert einen Release-PR (Version-Bump + Changelog)
+3. Release-PR mergen → GitHub Release + Git-Tag werden automatisch erstellt
+
+Versionierung: `fix:` → Patch, `feat:` → Minor, `feat!:` / `BREAKING CHANGE:` → Major.
+
+Workflow: `.github/workflows/release-please.yml`
 
 ## Renovate: Ausfuehrung
 
