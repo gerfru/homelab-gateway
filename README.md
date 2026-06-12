@@ -208,7 +208,7 @@ External apps (connect via 'proxy' network):
 
 ### Observability
 
-- **Grafana** dashboards with Loki, Prometheus, and Tempo pre-configured as datasources
+- **Grafana** dashboards with Loki, Prometheus, and Tempo pre-configured as datasources; ships with three dashboards: Homelab Overview (Loki logs), System Monitoring (Prometheus/node-exporter), Gitea (repos, issues, Go runtime)
 - **Prometheus** scrapes 8 targets (node-exporter, Caddy, Loki, Grafana, Promtail, Tempo, Gitea, self) every 30s
 - **Loki + Promtail** centralized logging — auto-discovers containers with `monitoring=true` label via Docker Socket Proxy
 - **Tempo** distributed tracing — receives OTLP on gRPC (4317) and HTTP (4318), container-internal only. To send traces from your app, add it to the `monitoring` network and configure:
@@ -225,7 +225,7 @@ External apps (connect via 'proxy' network):
 ### Alerting + Monitoring
 
 - **Grafana Unified Alerting** — 8 rules (HighCPU, HighMemory, DiskAlmostFull, TargetDown, HighErrorRate, AuthFailures, HighP95Latency, ContainerRestartLoop) with webhook notifications
-- **Uptime Kuma** — auto-provisioned monitors from Caddyfile subdomains via `./scripts/setup-uptime-monitors.sh`
+- **Uptime Kuma** — auto-provisioned HTTPS monitors from Caddyfile subdomains + enhanced keyword monitors for critical health endpoints (e.g. Gitea `/api/healthz`) via `./scripts/setup-uptime-monitors.sh`
 - **Watchtower** — daily container update checks at 4 AM (monitor-only, notifies but does not auto-apply)
 
 ---
@@ -297,7 +297,7 @@ The DNS wildcard already resolves `myapp.home.lab` — no DNS changes needed.
 ## Security
 
 - **Network isolation** — all traffic encrypted via Tailscale WireGuard tunnel; Caddy and CoreDNS bind exclusively to Tailscale IP
-- **HTTPS everywhere** — internal TLS certificates, security headers on all responses (HSTS, CSP, X-Frame-Options)
+- **HTTPS everywhere** — internal TLS certificates, security headers on all responses (HSTS, X-Frame-Options, X-Content-Type-Options); CSP either set by the gateway (`security_headers`) or passed through from the app (`security_headers_app_csp` for nonce-based CSPs like Niles and PulseBase)
 - **Authentication** — Grafana login required, Gitea login required (registration disabled by default), Caddy basicauth on Prometheus/metrics subdomains, Loki tenant auth (`X-Scope-OrgID`)
 - **Container hardening** — `no-new-privileges`, `cap_drop: ALL`, `read_only` where possible, all images pinned by SHA256 digest. Exception: PostgreSQL and Gitea require `no-new-privileges` disabled (su-exec/gosu needs setuid for user switching) — documented as accepted risk in docker-compose.yml
 - **Least privilege** — Promtail uses read-only Docker Socket Proxy instead of direct socket mount; Loki only on `127.0.0.1:3100`
