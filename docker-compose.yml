@@ -298,7 +298,7 @@ services:
   # Note: OTLP ports are container-internal only (not host-exposed).
   # To send traces, connect from the 'monitoring' Docker network.
   tempo:
-    image: grafana/tempo:2.7.2@sha256:4b0277a9b572a4b1fa43b01468e58911ec214dd69d033f2cd476596d14de9fe3
+    image: grafana/tempo:2.10.7@sha256:032b3acb51ed02c4b801473d54bb63e9e9f13738d215126d9843c30283794f4b
     container_name: gateway-tempo
     restart: unless-stopped
     read_only: true
