@@ -54,8 +54,9 @@ jobs:
           ALERTING_WEBHOOK_URL=http://localhost:9999 \
           docker compose config --quiet
 
-  # GitHub-native secret scanning is unavailable on free-tier private repos.
-  # TruffleHog provides equivalent detection with verified/unverified filtering.
+  # TruffleHog runs in CI as a second layer alongside GitHub's native secret scanning.
+  # Both are active: GitHub Secret Scanning catches provider patterns at push time,
+  # TruffleHog verifies findings and catches unverified/unknown patterns.
   secret-scan:
     runs-on: ubuntu-latest
     steps:
