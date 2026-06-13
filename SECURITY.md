@@ -56,8 +56,8 @@ Homelab Gateway is designed as a Tailscale-only infrastructure stack. Nothing is
 ### Secrets Management
 
 - Sensitive credentials stored as Docker Secrets (file-based, not in environment variables)
-- Secret files gitignored, never committed
-- `.env` contains only non-sensitive configuration and bcrypt hashes
+- Secret files (`secrets/`) gitignored, never committed
+- `.env` contains runtime credentials (passwords, API tokens) — gitignored, never committed; see `.env.example` for the expected keys with placeholder values
 
 ### CI Pipeline
 
