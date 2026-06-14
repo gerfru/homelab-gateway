@@ -13,7 +13,7 @@ source "$SCRIPT_DIR/lib.sh"
 
 # Wait for all containers with a healthcheck to reach healthy/running state
 echo "Waiting for stack to be ready (max 90s)..."
-WAIT_SERVICES="caddy grafana prometheus node-exporter uptime-kuma socket-proxy tempo gitea gitea-db"
+WAIT_SERVICES="caddy grafana prometheus node-exporter uptime-kuma socket-proxy gitea gitea-db"
 DEADLINE=$(( $(date +%s) + 90 ))
 for svc in $WAIT_SERVICES; do
   while true; do
@@ -74,10 +74,13 @@ assert_healthy prometheus
 assert_healthy node-exporter
 assert_healthy uptime-kuma
 assert_healthy socket-proxy
-assert_healthy tempo
+assert_running tempo
 assert_running watchtower
 assert_healthy gitea
 assert_healthy gitea-db
+if docker compose ps --format json arbscanner 2>/dev/null | jq -e '.State == "running"' >/dev/null 2>&1; then
+  assert_healthy arbscanner
+fi
 
 echo ""
 echo "=== Prometheus Targets ==="
