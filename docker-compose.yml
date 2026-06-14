@@ -760,6 +760,6 @@ secrets:
   act_runner_token:
     file: ./secrets/act_runner_token
   kalshi_api_key_id:
-    file: ../arbscanner/secrets/kalshi_api_key_id
+    file: ${ARBSCANNER_PATH:-../arbscanner}/secrets/kalshi_api_key_id
   kalshi_private_key:
-    file: ../arbscanner/secrets/kalshi_private_key
+    file: ${ARBSCANNER_PATH:-../arbscanner}/secrets/kalshi_private_key

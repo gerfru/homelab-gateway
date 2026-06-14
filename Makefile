@@ -1,11 +1,14 @@
-.PHONY: help generate up down status logs test-dns clean dns-up dns-down dns-status dns-logs logs-caddy logs-dns check-env dry-run test test-generate test-pii test-smoke test-update-golden backup restore update-ip build-arbscanner update-arbscanner rollback-arbscanner setup-arbscanner-secrets verify-stack
+.PHONY: help generate up down status logs test-dns clean dns-up dns-down dns-status dns-logs logs-caddy logs-dns check-env dry-run test test-generate test-pii test-smoke test-update-golden backup restore update-ip build-arbscanner update-arbscanner rollback-arbscanner setup-arbscanner-secrets verify-stack setup-monitors
 
 -include .env
 export DOMAIN TAILSCALE_IP
 
-UNAME := $(shell uname)
+UNAME    := $(shell uname)
 REPO_DIR := $(shell pwd)
 ZONE_FILE := $(REPO_DIR)/dns/home.lab.zone
+
+ARBSCANNER_PATH ?= ../arbscanner
+ARB_PROFILE := $(shell test -s "$(ARBSCANNER_PATH)/secrets/kalshi_api_key_id" 2>/dev/null && echo "--profile arbscanner")
 
 .DEFAULT_GOAL := help
 
@@ -99,7 +102,7 @@ dry-run: check-env generate ## Preview what 'make up' would do (no deployment)
 up: check-env generate dns-up ## Start the full gateway stack
 	@echo "Starting gateway..."
 ifeq ($(UNAME),Darwin)
-	@docker compose --env-file .env up -d || { \
+	@docker compose --env-file .env $(ARB_PROFILE) up -d || { \
 		echo ""; \
 		echo "ERROR: docker compose failed. Troubleshooting:"; \
 		echo "  - Port conflict:  lsof -i :443 -i :53"; \
@@ -108,7 +111,7 @@ ifeq ($(UNAME),Darwin)
 		exit 1; \
 	}
 else
-	@COMPOSE_PROFILES=linux docker compose --env-file .env up -d || { \
+	@COMPOSE_PROFILES=linux docker compose --env-file .env $(ARB_PROFILE) up -d || { \
 		echo ""; \
 		echo "ERROR: docker compose failed. Troubleshooting:"; \
 		echo "  - Port conflict:  ss -tlnp | grep -E ':(443|53) '"; \
@@ -125,6 +128,7 @@ endif
 	@echo "  https://prometheus.$(DOMAIN)  Prometheus (metrics)"
 	@echo "  https://arb.$(DOMAIN)         arbscanner (arbitrage dashboard, profile: arbscanner)"
 	@echo ""
+	@$(MAKE) setup-monitors
 	@echo "Verify: make test-dns   make test-smoke"
 
 down: dns-down ## Stop all services
@@ -288,6 +292,9 @@ verify-stack: ## Check config drift, running state, and secret files
 	@echo "=== Secret Files ==="
 	@(test -f secrets/kalshi_api_key_id && test -s secrets/kalshi_api_key_id && echo "kalshi_api_key_id: OK") || echo "kalshi_api_key_id: MISSING"
 	@(test -f secrets/kalshi_private_key && grep -q "BEGIN" secrets/kalshi_private_key && echo "kalshi_private_key: OK") || echo "kalshi_private_key: INVALID or MISSING"
+
+setup-monitors: ## Provision Uptime Kuma monitors (idempotent, runs automatically on make up)
+	@bash scripts/setup-uptime-monitors.sh
 
 # --- Backup / Restore ---
 
