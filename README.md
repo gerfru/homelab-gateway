@@ -237,6 +237,10 @@ External apps (connect via 'proxy' network):
 - **Uptime Kuma** — auto-provisioned HTTPS monitors from Caddyfile subdomains + enhanced keyword monitors for critical health endpoints (e.g. Gitea `/api/healthz`) via `./scripts/setup-uptime-monitors.sh`
 - **Watchtower** — daily container update checks at 4 AM (monitor-only, notifies but does not auto-apply)
 
+### Optional services
+
+- **arbscanner** — Prediction Market Arbitrage Scanner (Kalshi × Polymarket). Start with `docker compose --profile arbscanner up -d arbscanner`. Setup and credentials: [github.com/gerfru/arbscanner](https://github.com/gerfru/arbscanner)
+
 ---
 
 ## Adding a service

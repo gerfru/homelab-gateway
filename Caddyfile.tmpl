@@ -39,6 +39,15 @@
 	import common_security
 }
 
+# arbscanner-Dashboard: lädt HTMX (unpkg.com) und Tailwind (cdn.tailwindcss.com) via CDN.
+# script-src muss diese beiden externen Quellen explizit erlauben.
+(security_headers_arb) {
+	import common_security
+	header {
+		Content-Security-Policy "default-src 'self'; script-src 'self' https://unpkg.com https://cdn.tailwindcss.com 'unsafe-inline'; style-src 'self' 'unsafe-inline'; img-src 'self'; connect-src 'self'; frame-ancestors 'none'"
+	}
+}
+
 (common_log) {
 	log {
 		output stdout
@@ -128,6 +137,14 @@ metrics.${DOMAIN} {
 		{$CADDY_AUTH_USER} {$CADDY_AUTH_PASS_HASH}
 	}
 	reverse_proxy localhost:9180
+}
+
+# arbscanner (Prediction Market Arbitrage Dashboard)
+arb.${DOMAIN} {
+	tls internal
+	import security_headers_arb
+	import common_log
+	reverse_proxy {$ARBSCANNER_UPSTREAM:arbscanner:8000}
 }
 
 # Prometheus scrape endpoint (internal only)

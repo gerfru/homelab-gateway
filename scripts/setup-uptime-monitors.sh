@@ -113,6 +113,11 @@ add_keyword_monitor \
   "https://gitea.${DOMAIN}/api/healthz" \
   "\"pass\""
 
+add_keyword_monitor \
+  "arb.${DOMAIN} — Health API" \
+  "https://arb.${DOMAIN}/health" \
+  '"ok"'
+
 if [[ $CREATED -gt 0 ]]; then
   echo ""
   echo "Restarting Uptime Kuma to load new monitors..."
