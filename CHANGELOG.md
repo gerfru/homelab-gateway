@@ -1,5 +1,12 @@
 # Changelog
 
+## [2.2.1](https://github.com/gerfru/homelab-gateway/compare/v2.2.0...v2.2.1) (2026-06-14)
+
+
+### Bug Fixes
+
+* stop arbscanner in make down and add optional smoke test ([#86](https://github.com/gerfru/homelab-gateway/issues/86)) ([ca0a0e4](https://github.com/gerfru/homelab-gateway/commit/ca0a0e460cac183cc81f963cb03acf45b25473e4))
+
 ## [2.2.0](https://github.com/gerfru/homelab-gateway/compare/v2.1.0...v2.2.0) (2026-06-14)
 
 
