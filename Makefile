@@ -129,7 +129,7 @@ endif
 
 down: dns-down ## Stop all services
 	@echo "Stopping gateway services..."
-	@docker compose down
+	@docker compose --profile arbscanner down
 	@echo ""
 	@echo "All services stopped. Data volumes preserved."
 	@echo "Restart with: make up"

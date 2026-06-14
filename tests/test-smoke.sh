@@ -78,6 +78,9 @@ assert_healthy tempo
 assert_running watchtower
 assert_healthy gitea
 assert_healthy gitea-db
+if docker compose ps --format json arbscanner 2>/dev/null | jq -e '.State == "running"' >/dev/null 2>&1; then
+  assert_healthy arbscanner
+fi
 
 echo ""
 echo "=== Prometheus Targets ==="
