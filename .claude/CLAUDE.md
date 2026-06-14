@@ -174,3 +174,27 @@ docker compose --profile tools run --rm renovate
 ```
 
 Fuer automatische Ausfuehrung: Host-Cron (`crontab -e`).
+
+## arbscanner: Docker Compose Profile
+
+arbscanner laeuft unter dem Profil `arbscanner` — es startet NICHT mit dem
+normalen `docker compose up`. Grund: die Kalshi API Secrets muessen erst
+manuell angelegt werden, bevor der Container starten kann.
+
+Einmaliges Setup:
+
+```bash
+make setup-arbscanner-secrets  # Secrets interaktiv anlegen
+```
+
+Starten:
+
+```bash
+docker compose --profile arbscanner up -d arbscanner
+# oder ueber Makefile-Targets:
+make build-arbscanner
+make update-arbscanner
+```
+
+Die Secrets (`secrets/kalshi_api_key_id`, `secrets/kalshi_private_key`) sind
+via `.gitignore` aus dem Repository ausgeschlossen.
