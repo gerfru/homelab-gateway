@@ -1,4 +1,4 @@
-.PHONY: help generate up down status logs test-dns clean dns-up dns-down dns-status dns-logs logs-caddy logs-dns check-env dry-run test test-generate test-pii test-smoke test-update-golden backup restore update-ip
+.PHONY: help generate up down status logs test-dns clean dns-up dns-down dns-status dns-logs logs-caddy logs-dns check-env dry-run test test-generate test-pii test-smoke test-update-golden backup restore update-ip build-arbscanner update-arbscanner rollback-arbscanner setup-arbscanner-secrets verify-stack
 
 -include .env
 export DOMAIN TAILSCALE_IP
@@ -123,6 +123,7 @@ endif
 	@echo "  https://logs.$(DOMAIN)        Grafana (dashboards, alerts)"
 	@echo "  https://status.$(DOMAIN)      Uptime Kuma (monitoring)"
 	@echo "  https://prometheus.$(DOMAIN)  Prometheus (metrics)"
+	@echo "  https://arb.$(DOMAIN)         arbscanner (arbitrage dashboard, profile: arbscanner)"
 	@echo ""
 	@echo "Verify: make test-dns   make test-smoke"
 
@@ -254,6 +255,39 @@ test-update-golden: ## Regenerate golden test files
 	@{ echo "; GENERATED FILE — DO NOT EDIT (source: dns/home.lab.zone.tmpl)"; \
 	   DOMAIN=test.example TAILSCALE_IP=100.64.0.1 envsubst '$$DOMAIN $$TAILSCALE_IP' < dns/home.lab.zone.tmpl; } > tests/golden/home.lab.zone
 	@echo "Golden files updated in tests/golden/"
+
+# --- arbscanner ---
+
+build-arbscanner: ## Build arbscanner image from local source
+	docker compose --profile arbscanner build arbscanner
+
+update-arbscanner: ## Rebuild and restart arbscanner (pull latest source first)
+	@echo "Rebuilding arbscanner..."
+	docker compose --profile arbscanner build arbscanner
+	docker compose --profile arbscanner up -d --no-deps arbscanner
+	@sleep 10
+	docker compose logs arbscanner --since 30s
+
+rollback-arbscanner: ## Rollback arbscanner to a specific git commit (SHA=<commit>)
+	@test -n "$(SHA)" || { echo "Usage: make rollback-arbscanner SHA=<git-commit-sha>"; exit 1; }
+	cd $${ARBSCANNER_PATH:-../arbscanner} && git checkout $(SHA)
+	docker compose --profile arbscanner build arbscanner
+	docker compose --profile arbscanner up -d --no-deps arbscanner
+	@echo "Rolled back to $(SHA)"
+
+setup-arbscanner-secrets: ## Interactive setup for Kalshi API secrets
+	@bash scripts/setup-arbscanner-secrets.sh
+
+verify-stack: ## Check config drift, running state, and secret files
+	@echo "=== Config Drift ==="
+	@git diff HEAD -- docker-compose.yml || true
+	@echo ""
+	@echo "=== Running State ==="
+	@docker compose ps --format "table {{.Name}}\t{{.Image}}\t{{.Status}}"
+	@echo ""
+	@echo "=== Secret Files ==="
+	@(test -f secrets/kalshi_api_key_id && test -s secrets/kalshi_api_key_id && echo "kalshi_api_key_id: OK") || echo "kalshi_api_key_id: MISSING"
+	@(test -f secrets/kalshi_private_key && grep -q "BEGIN" secrets/kalshi_private_key && echo "kalshi_private_key: OK") || echo "kalshi_private_key: INVALID or MISSING"
 
 # --- Backup / Restore ---
 

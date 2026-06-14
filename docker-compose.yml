@@ -58,6 +58,7 @@ services:
       - GRAFANA_UPSTREAM=${GRAFANA_UPSTREAM:-gateway-grafana:3000}
       - PROMETHEUS_UPSTREAM=${PROMETHEUS_UPSTREAM:-prometheus:9090}
       - GITEA_UPSTREAM=${GITEA_UPSTREAM:-gitea:3000}
+      - ARBSCANNER_UPSTREAM=${ARBSCANNER_UPSTREAM:-arbscanner:8000}
     volumes:
       - ./Caddyfile:/etc/caddy/Caddyfile:ro
       - caddy_data:/data
@@ -78,6 +79,55 @@ services:
       resources:
         limits:
           memory: 256m
+          cpus: '0.50'
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+  # --- Arbitrage Scanner ---
+
+  arbscanner:
+    profiles: [arbscanner]
+    build:
+      context: ${ARBSCANNER_PATH:-../arbscanner}
+    container_name: arbscanner
+    restart: unless-stopped
+    security_opt:
+      - no-new-privileges:true
+    cap_drop:
+      - ALL
+    read_only: true
+    tmpfs:
+      - /tmp
+    environment:
+      - LOG_FORMAT=json
+      - WEB_ENABLED=true
+      - WEB_PORT=8000
+      - POLL_INTERVAL_SECONDS=${ARBSCANNER_POLL_INTERVAL:-30}
+      - MIN_PROFIT_THRESHOLD=${ARBSCANNER_MIN_PROFIT:-0.02}
+      - FUZZY_MATCH_THRESHOLD=${ARBSCANNER_FUZZY_THRESHOLD:-80}
+      - KALSHI_API_KEY_ID_FILE=/run/secrets/kalshi_api_key_id
+      - KALSHI_PRIVATE_KEY_PATH=/run/secrets/kalshi_private_key
+    secrets:
+      - kalshi_api_key_id
+      - kalshi_private_key
+    networks:
+      - proxy
+      - monitoring
+    labels:
+      - "monitoring=true"
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8000/health')"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 60s
+    deploy:
+      resources:
+        limits:
+          memory: 2g
           cpus: '0.50'
     logging:
       driver: json-file
@@ -709,3 +759,7 @@ secrets:
     file: ./secrets/renovate_token
   act_runner_token:
     file: ./secrets/act_runner_token
+  kalshi_api_key_id:
+    file: ../arbscanner/secrets/kalshi_api_key_id
+  kalshi_private_key:
+    file: ../arbscanner/secrets/kalshi_private_key
