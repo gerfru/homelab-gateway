@@ -1,5 +1,12 @@
 # Changelog
 
+## [2.2.2](https://github.com/gerfru/homelab-gateway/compare/v2.2.1...v2.2.2) (2026-06-14)
+
+
+### Bug Fixes
+
+* reduce arbscanner memory limit to 768m ([#89](https://github.com/gerfru/homelab-gateway/issues/89)) ([5f435ed](https://github.com/gerfru/homelab-gateway/commit/5f435ed056f32c541a27676f2387c5557d50faa9))
+
 ## [2.2.1](https://github.com/gerfru/homelab-gateway/compare/v2.2.0...v2.2.1) (2026-06-14)
 
 
