@@ -368,12 +368,10 @@ services:
     labels:
       - "monitoring=true"
       - "com.centurylinklabs.watchtower.enable=true"
+    # Tempo 2.x is distroless (no /bin/sh) — CMD-SHELL healthchecks fail.
+    # Process liveness is ensured by restart: unless-stopped.
     healthcheck:
-      test: ["CMD-SHELL", "wget -qO- http://localhost:3200/ready || exit 1"]
-      interval: 30s
-      timeout: 5s
-      retries: 3
-      start_period: 40s
+      disable: true
     deploy:
       resources:
         limits:
