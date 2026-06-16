@@ -103,6 +103,9 @@ services:
     read_only: true
     tmpfs:
       - /tmp
+    volumes:
+      # Writable store for the Settings page (rootfs is read-only).
+      - arbscanner_data:/data
     environment:
       - LOG_FORMAT=json
       - WEB_ENABLED=true
@@ -736,6 +739,7 @@ volumes:
   gitea-repos:
   gitea-db-data:
   act_runner_data:
+  arbscanner_data:
 
 networks:
   proxy:
