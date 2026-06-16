@@ -51,6 +51,8 @@ services:
       - CADDY_AUTH_USER=${CADDY_AUTH_USER:-}
       - CADDY_AUTH_PASS_HASH=${CADDY_AUTH_PASS_HASH:-}
       - NILES_UPSTREAM=${NILES_UPSTREAM:-niles_core:8000}
+      # API key for the internal :9101 Niles /metrics scrape (must equal Niles' NILES_API_KEY)
+      - NILES_METRICS_API_KEY=${NILES_METRICS_API_KEY:-}
       - PULSEBASE_UPSTREAM=${PULSEBASE_UPSTREAM:-pulsebase-api:8000}
       - VIKUNJA_UPSTREAM=${VIKUNJA_UPSTREAM:-vikunja:3456}
       - WHATSAPP_UPSTREAM=${WHATSAPP_UPSTREAM:-evolution_api:8080}
@@ -101,6 +103,9 @@ services:
     read_only: true
     tmpfs:
       - /tmp
+    volumes:
+      # Writable store for the Settings page (rootfs is read-only).
+      - arbscanner_data:/data
     environment:
       - LOG_FORMAT=json
       - WEB_ENABLED=true
@@ -734,6 +739,7 @@ volumes:
   gitea-repos:
   gitea-db-data:
   act_runner_data:
+  arbscanner_data:
 
 networks:
   proxy:

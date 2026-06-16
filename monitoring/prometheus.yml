@@ -31,6 +31,13 @@ scrape_configs:
     static_configs:
       - targets: ["gitea:3000"]
 
+  # Niles AI — scraped through Caddy's internal :9101 endpoint, which injects
+  # the X-API-Key header (Niles /metrics is API-key-protected and only reachable
+  # via the proxy network that Caddy bridges to). See Caddyfile.tmpl :9101.
+  - job_name: niles
+    static_configs:
+      - targets: ["caddy:9101"]
+
   - job_name: prometheus
     static_configs:
       - targets: ["localhost:9090"]

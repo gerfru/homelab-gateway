@@ -292,3 +292,79 @@ groups:
           severity: critical
         annotations:
           summary: "Service {{ $labels.job }} restarted more than 4 times in 15 minutes"
+
+  # Niles-specific signals. Gateway-wide error-rate / p95 / target-down (incl.
+  # the niles scrape job) are already covered by the homelab-system group above;
+  # these add the signals only Niles exposes.
+  - orgId: 1
+    name: niles
+    folder: Homelab Alerts
+    interval: 1m
+    rules:
+      - uid: niles-db-pool-exhausted
+        title: NilesDbPoolExhausted
+        condition: B
+        data:
+          - refId: A
+            relativeTimeRange:
+              from: 300
+              to: 0
+            datasourceUid: prometheus
+            model:
+              expr: niles_db_pool_free
+              instant: true
+              refId: A
+          - refId: B
+            relativeTimeRange:
+              from: 0
+              to: 0
+            datasourceUid: __expr__
+            model:
+              type: threshold
+              expression: A
+              conditions:
+                - evaluator:
+                    type: lt
+                    params:
+                      - 1
+              refId: B
+        for: 3m
+        labels:
+          severity: warning
+        annotations:
+          summary: Niles DB connection pool exhausted (no idle connections for 3 minutes)
+
+      - uid: niles-tool-repair-rate
+        title: NilesToolRepairRateHigh
+        condition: B
+        data:
+          - refId: A
+            relativeTimeRange:
+              from: 900
+              to: 0
+            datasourceUid: prometheus
+            model:
+              expr: sum(rate(niles_llm_tool_repairs_total[15m]))
+              instant: true
+              refId: A
+          - refId: B
+            relativeTimeRange:
+              from: 0
+              to: 0
+            datasourceUid: __expr__
+            model:
+              type: threshold
+              expression: A
+              conditions:
+                - evaluator:
+                    type: gt
+                    params:
+                      - 0.2
+              refId: B
+        for: 10m
+        labels:
+          severity: info
+        annotations:
+          summary: >-
+            Niles text tool-call repair rate elevated (malformed tool calls —
+            fix at the model/prompt root)

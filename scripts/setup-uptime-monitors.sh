@@ -118,6 +118,18 @@ add_keyword_monitor \
   "https://arb.${DOMAIN}/health" \
   '"ok"'
 
+add_keyword_monitor \
+  "niles.${DOMAIN} — Liveness" \
+  "https://niles.${DOMAIN}/health" \
+  '"ok"'
+
+# /ready returns 200 {"status":"ready"} when DB+migrations are healthy, else 503.
+# The 503 is rejected by the 200-299 status filter, so readiness fails correctly.
+add_keyword_monitor \
+  "niles.${DOMAIN} — Readiness" \
+  "https://niles.${DOMAIN}/ready" \
+  '"ready"'
+
 if [[ $CREATED -gt 0 ]]; then
   echo ""
   echo "Restarting Uptime Kuma to load new monitors..."
