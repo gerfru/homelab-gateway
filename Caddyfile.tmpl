@@ -151,3 +151,18 @@ arb.${DOMAIN} {
 :9180 {
 	metrics /metrics
 }
+
+# Niles /metrics scrape (internal only, monitoring network).
+# Niles protects /metrics with an X-API-Key header and exposes no host port,
+# so Prometheus (monitoring net) cannot reach it directly. Caddy bridges to
+# niles_core (proxy net) and injects the key, keeping the secret out of the
+# Prometheus config. Reachable only as caddy:9101 inside Docker.
+:9101 {
+	@metrics path /metrics
+	handle @metrics {
+		reverse_proxy {$NILES_UPSTREAM:niles_core:8000} {
+			header_up X-API-Key {$NILES_METRICS_API_KEY}
+		}
+	}
+	respond 404
+}
