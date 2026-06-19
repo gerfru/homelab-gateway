@@ -644,7 +644,7 @@ services:
         max-file: "3"
 
   renovate:
-    image: renovate/renovate:43@sha256:98174f03b4d8db564ced5948e11f4694112d3bfc512dc8e141421905ea65ecc5
+    image: renovate/renovate:43@sha256:aa3af52641f0713f9f00afac463cc3bfb2aa31c590fed9b04ef10b8821929a2b
     container_name: gateway-renovate
     security_opt:
       - no-new-privileges:true
