@@ -527,7 +527,7 @@ services:
         max-file: "2"
 
   gitea:
-    image: gitea/gitea:1.26@sha256:8b388261a1ffd23fc49cf01400076d3d1781409280fa3b1f002ed5548422b2dd
+    image: gitea/gitea:1.26@sha256:8e25c717b8f748445e15ec46e0390f577cb628101184cb0a150d1dae126c1f39
     container_name: gateway-gitea
     restart: unless-stopped
     # ACCEPTED RISK: no-new-privileges not set, read_only not set.
